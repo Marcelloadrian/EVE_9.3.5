@@ -4,12 +4,13 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Gunakan Environment Variable agar aman (jangan hardcode di sini)
+# Mengambil API Key dari Environment Variable (isi di dashboard Render)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 @app.route('/eve', methods=['POST'])
 def eve_interface():
-    user_input = request.json.get('message')
+    user_data = request.json
+    user_input = user_data.get('message', '')
     
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -19,17 +20,23 @@ def eve_interface():
     payload = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "Kamu EVE, asisten sekretaris yang efisien. Jika user memberi jadwal, catat dengan format [JADWAL: nama - waktu]."},
+            {"role": "system", "content": "Kamu EVE, sekretaris AI yang efisien. Jawablah dengan ringkas dan profesional."},
             {"role": "user", "content": user_input}
         ]
     }
     
     try:
         response = requests.post(url, headers=headers, json=payload)
-        reply = response.json()['choices'][0]['message']['content']
+        response_data = response.json()
+        reply = response_data['choices'][0]['message']['content']
         return jsonify({"reply": reply})
     except Exception as e:
-        return jsonify({"reply": "Maaf, EVE sedang ada gangguan teknis."}), 500
+        return jsonify({"reply": "Maaf, EVE sedang ada kendala teknis."}), 500
+
+# Endpoint untuk UptimeRobot (biar tidak tidur)
+@app.route('/ping', methods=['GET'])
+def ping():
+    return "EVE is awake", 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
