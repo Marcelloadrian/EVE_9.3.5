@@ -1,41 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>EVE Terminal</title>
+    <title>EVE</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { background: #000; color: #0f0; font-family: monospace; padding: 20px; }
-        #chat { height: 300px; overflow-y: scroll; border: 1px solid #0f0; margin-bottom: 10px; padding: 10px; }
-        input { width: 70%; background: #000; color: #0f0; border: 1px solid #0f0; padding: 10px; }
-        button { background: #0f0; color: #000; border: none; padding: 10px; cursor: pointer; }
+        #chat { height: 300px; border: 1px solid #0f0; overflow-y: scroll; margin-bottom: 10px; padding: 10px; }
     </style>
 </head>
 <body>
-    <div id="chat">EVE: System Online. Ready to assist.</div>
-    <br>
-    <input type="text" id="userInput" placeholder="Tanya EVE...">
-    <button onclick="sendMessage()">Send</button>
+    <div id="chat">EVE: System Online.</div>
+    <input type="text" id="userInput">
+    <button onclick="kirimPesan()">Send</button>
 
     <script>
-        function sendMessage() {
-            var input = document.getElementById('userInput').value;
+        function kirimPesan() {
+            var msg = document.getElementById('userInput').value;
             var chat = document.getElementById('chat');
-            if(input.trim() == "") return;
-            
-            chat.innerHTML += '<br>> ' + input;
-            
+            if(!msg) return;
+
+            chat.innerHTML += '<br>> ' + msg;
+            document.getElementById('userInput').value = '';
+
             var xhr = new XMLHttpRequest();
             xhr.open("POST", "/eve", true);
             xhr.setRequestHeader("Content-Type", "application/json");
+            
             xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    var res = JSON.parse(xhr.responseText);
-                    chat.innerHTML += '<br>EVE: ' + res.reply;
-                    chat.scrollTop = chat.scrollHeight;
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        var res = JSON.parse(xhr.responseText);
+                        chat.innerHTML += '<br>EVE: ' + res.reply;
+                    } else {
+                        chat.innerHTML += '<br><span style="color:red;">Error ' + xhr.status + '</span>';
+                    }
                 }
             };
-            xhr.send(JSON.stringify({message: input}));
-            document.getElementById('userInput').value = '';
+            xhr.send(JSON.stringify({message: msg}));
         }
     </script>
 </body>
