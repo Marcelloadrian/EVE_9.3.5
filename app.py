@@ -1,11 +1,15 @@
 import os
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__, template_folder='.')
 
-# Mengambil API Key dari Environment Variable (isi di dashboard Render)
+# Pastikan GROQ_API_KEY sudah di-set di Environment Variables dashboard Render lo!
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
+@app.route('/')
+def home():
+    return render_template('index.html')
 
 @app.route('/eve', methods=['POST'])
 def eve_interface():
@@ -33,7 +37,6 @@ def eve_interface():
     except Exception as e:
         return jsonify({"reply": "Maaf, EVE sedang ada kendala teknis."}), 500
 
-# Endpoint untuk UptimeRobot (biar tidak tidur)
 @app.route('/ping', methods=['GET'])
 def ping():
     return "EVE is awake", 200
