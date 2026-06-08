@@ -7,6 +7,9 @@ from flask import Flask, request, jsonify, send_from_directory
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Memori percakapan (Dictionary untuk menyimpan history per session)
+chat_memory = {}
+
 # --- DATABASE UTILS ---
 def load_data(f):
     if not os.path.exists(f): return []
@@ -29,64 +32,61 @@ def eve_interface():
     user_input = data.get('message', '')
     msg = user_input.lower()
     
-    # --- FLEXIBLE INTENT DETECTION ---
+    # Update Memory (Simpan 10 pesan terakhir)
+    history = chat_memory.get("user", [])
+    history.append({"role": "user", "content": user_input})
+    if len(history) > 10: history.pop(0)
+    chat_memory["user"] = history
+    
+    # --- INTENT DETECTION ---
     is_jadwal = any(k in msg for k in ["jadwal", "schedule", "tugas", "ingetin", "ingatkan"])
     is_note = any(k in msg for k in ["note", "arsip", "catatan"])
     is_dashboard = any(k in msg for k in ["dashboard", "status", "keadaan terkini", "info"])
     is_add = any(k in msg for k in ["pasang", "tambah", "buat", "catat", "save"])
     is_delete = any(k in msg for k in ["hapus", "selesai", "buang"])
 
-    # 1. DASHBOARD / STATUS (Ringkasan Total)
+    # 1. DASHBOARD
     if is_dashboard:
         jadwal = load_data("jadwal.json")
         notes = load_data("notes.json")
-        reply = "-- EVE SYSTEM DASHBOARD --\n"
-        reply += "[JADWAL AKTIF]\n" + ("\n".join([f"{i+1}. {j.upper()}" for i, j in enumerate(jadwal)]) if jadwal else "KOSONG")
-        reply += "\n\n[ARSIP NOTES]\n" + ("\n".join([f"- {n.upper()}" for n in notes]) if notes else "KOSONG")
-        return jsonify({"reply": reply + "\n--------------------------"})
+        reply = "-- EVE SYSTEM DASHBOARD --\n[JADWAL]: " + str(len(jadwal)) + " item\n[ARSIP]: " + str(len(notes)) + " item\n\n"
+        reply += "\n".join([f"{i+1}. {j.upper()}" for i, j in enumerate(jadwal)])
+        return jsonify({"reply": reply})
 
-    # 2. LOGIC JADWAL (Flexible)
-    elif is_jadwal:
-        jadwal = load_data("jadwal.json")
+    # 2. LOGIC JADWAL & NOTES (Local)
+    elif is_jadwal or is_note:
+        db_file = "jadwal.json" if is_jadwal else "notes.json"
+        data_list = load_data(db_file)
+        
         if is_add:
-            task = re.sub(r'(pasang|tambah|buat|catat|save|jadwal|schedule|tugas|ingetin|ingatkan)', '', user_input, flags=re.IGNORECASE).strip()
-            if task:
-                jadwal.append(task)
-                save_data("jadwal.json", jadwal)
-                return jsonify({"reply": "EVE (LOCAL): TUGAS DITAMBAHKAN: " + task.upper()})
-        elif is_delete:
+            item = re.sub(r'(pasang|tambah|buat|catat|save|note|arsip|catatan|jadwal|schedule|tugas|ingetin|ingatkan)', '', user_input, flags=re.IGNORECASE).strip()
+            data_list.append(item)
+            save_data(db_file, data_list)
+            return jsonify({"reply": "EVE (LOCAL): DITAMBAHKAN KE " + db_file.replace(".json", "").upper()})
+        
+        elif is_delete and is_jadwal:
             target = re.sub(r'(hapus|selesai|buang|jadwal|schedule|tugas|ingetin|ingatkan)', '', user_input, flags=re.IGNORECASE).strip()
-            new_j = [j for j in jadwal if target.lower() not in j.lower()]
-            save_data("jadwal.json", new_j)
+            data_list = [j for j in data_list if target.lower() not in j.lower()]
+            save_data(db_file, data_list)
             return jsonify({"reply": f"EVE (LOCAL): TUGAS '{target.upper()}' DIPROSES."})
-        else:
-            return jsonify({"reply": "JADWAL:\n" + ("\n".join([f"{i+1}. {j.upper()}" for i, j in enumerate(jadwal)]) if jadwal else "KOSONG")})
+        
+        return jsonify({"reply": "LIST:\n" + "\n".join([f"- {i.upper()}" for i in data_list])})
 
-    # 3. LOGIC NOTES (Flexible)
-    elif is_note:
-        notes = load_data("notes.json")
-        if is_add:
-            note = re.sub(r'(note|arsip|catatan|pasang|tambah|buat|catat|save)', '', user_input, flags=re.IGNORECASE).strip()
-            if note:
-                notes.append(note)
-                save_data("notes.json", notes)
-                return jsonify({"reply": "EVE (LOCAL): CATATAN DISIMPAN: " + note.upper()})
-        else:
-            return jsonify({"reply": "ARSIP:\n" + ("\n".join([f"- {n.upper()}" for n in notes]) if notes else "KOSONG")})
-
-    # 4. GLOBAL AI (Fallback)
+    # 3. GLOBAL AI (With Context Memory)
     try:
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
                 "model": "llama-3.3-70b-versatile",
-                "messages": [{"role": "user", "content": user_input}]
+                "messages": history # Kirim history supaya tidak pikun
             }
         )
-        return jsonify({"reply": "EVE (GLOBAL): " + response.json()['choices'][0]['message']['content'].upper()})
+        ai_reply = response.json()['choices'][0]['message']['content']
+        history.append({"role": "assistant", "content": ai_reply})
+        return jsonify({"reply": "EVE (GLOBAL): " + ai_reply.upper()})
     except Exception as e:
-        return jsonify({"reply": "EVE: GLOBAL INTERFACE ERROR"})
+        return jsonify({"reply": "EVE: GLOBAL INTERFACE ERROR - " + str(e)})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
