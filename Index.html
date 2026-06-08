@@ -1,98 +1,38 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>EVE TERMINAL</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-        
-        body { 
-            background: #000; 
-            color: #0f0; 
-            font-family: 'Share Tech Mono', monospace; 
-            display: flex; 
-            justify-content: center; 
-            padding: 20px;
-            margin: 0;
-            text-shadow: 0 0 5px #0f0, 0 0 10px #0f0;
-        }
-        .container { width: 100%; max-width: 800px; }
-        #chat { 
-            height: 500px; 
-            border: 2px solid #0f0; 
-            background: rgba(0, 20, 0, 0.8);
-            overflow-y: auto; 
-            margin-bottom: 20px; 
-            padding: 25px; 
-            font-size: 1.4rem;
-            box-shadow: inset 0 0 20px #000;
-        }
-        .input-group { display: flex; gap: 15px; }
-        #userInput { 
-            flex-grow: 1; 
-            background: #000; 
-            color: #0f0; 
-            border: 2px solid #0f0; 
-            padding: 15px; 
-            font-size: 1.2rem;
-            font-family: inherit;
-        }
-        button { 
-            background: #0f0; 
-            color: #000; 
-            border: none; 
-            padding: 15px 30px; 
-            cursor: pointer; 
-            font-weight: bold;
-            font-size: 1.2rem;
-            font-family: inherit;
-            transition: 0.3s;
-        }
-        button:hover { background: #fff; box-shadow: 0 0 20px #fff; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1 style="text-align: center; letter-spacing: 5px;">EVE V.9.3.5</h1>
-        <div id="chat">INITIALIZING SYSTEM...<br>CONNECTION ESTABLISHED.<br>EVE: Ready to interface.</div>
-        <div class="input-group">
-            <input type="text" id="userInput" placeholder="TYPE COMMAND...">
-            <button onclick="kirimPesan()">EXECUTE</button>
-        </div>
-    </div>
+<div id="chat-display" style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #000; color: #0f0; padding: 20px; min-height: 200px;"></div>
 
-    <script>
-        function kirimPesan() {
-            var input = document.getElementById('userInput');
-            var msg = input.value;
-            var chat = document.getElementById('chat');
-            if(!msg) return;
-
-            chat.innerHTML += '<br><br>> ' + msg.toUpperCase();
-            input.value = '';
-            chat.scrollTop = chat.scrollHeight;
-
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", "/eve", true);
-            xhr.setRequestHeader("Content-Type", "application/json");
-            
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        var res = JSON.parse(xhr.responseText);
-                        chat.innerHTML += '<br> >' + res.reply.toUpperCase();
-                    } else {
-                        chat.innerHTML += '<br><span style="color:red;">[SYSTEM ERROR ' + xhr.status + ']</span>';
-                    }
-                    chat.scrollTop = chat.scrollHeight;
-                }
-            };
-            xhr.send(JSON.stringify({message: msg}));
+<script>
+    function typeWriter(text, i, fnCallback) {
+        if (i < text.length) {
+            document.getElementById("chat-display").innerHTML = text.substring(0, i + 1) + '<span class="cursor">|</span>';
+            setTimeout(function() {
+                typeWriter(text, i + 1, fnCallback);
+            }, 15); // Kecepatan ketik (15ms per karakter)
+        } else if (typeof fnCallback == 'function') {
+            setTimeout(fnCallback, 700);
         }
+    }
 
-        document.getElementById("userInput").addEventListener("keyup", function(event) {
-            if (event.key === "Enter") kirimPesan();
+    function sendMessage() {
+        let input = document.getElementById("user-input").value;
+        fetch('/eve', {
+            method: 'POST',
+            body: JSON.stringify({ message: input }),
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Panggil efek ketik dengan teks dari server
+            typeWriter(data.reply, 0);
         });
-    </script>
-</body>
-</html>
+    }
+</script>
+
+<style>
+    .cursor {
+        display: inline-block;
+        background-color: #0f0;
+        width: 10px;
+        animation: blink 1s infinite;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+</style>
