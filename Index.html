@@ -1,36 +1,58 @@
-// Pastikan chat-display kosong dulu
-const chatDisplay = document.getElementById("chat-display");
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>EVE SYSTEM</title>
+    <style>
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; padding: 20px; }
+        #chat-display { 
+            white-space: pre; 
+            min-height: 200px; 
+            border: 1px solid #0f0; 
+            padding: 15px; 
+            margin-bottom: 10px; 
+        }
+        .cursor { display: inline-block; background-color: #0f0; width: 10px; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        input { background: #000; color: #0f0; border: 1px solid #0f0; padding: 10px; width: 80%; }
+        button { background: #0f0; color: #000; border: none; padding: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
 
-function sendMessage() {
-    let input = document.getElementById("user-input").value;
+    <div id="chat-display">INITIALIZING EVE SYSTEM...</div>
     
-    // Reset tampilan sebelum menerima respon baru
-    chatDisplay.innerHTML = '<span class="cursor">|</span>'; 
-    
-    fetch('/eve', {
-        method: 'POST',
-        body: JSON.stringify({ message: input }),
-        headers: { 'Content-Type': 'application/json' }
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Panggil fungsi typeWriter dengan teks dari server
-        typeWriter(data.reply, 0);
-    });
-}
+    <input type="text" id="user-input" placeholder="Masukkan perintah...">
+    <button onclick="sendMessage()">EXECUTE</button>
 
-function typeWriter(text, i) {
-    if (i < text.length) {
-        // Menggunakan substring untuk menambah karakter satu-satu
-        // Kita pakai text.charAt(i) biar lebih aman untuk karakter khusus seperti \n
-        chatDisplay.innerHTML = text.substring(0, i + 1) + '<span class="cursor">|</span>';
-        
-        // Kecepatan diatur lebih cepat (10ms) agar kotak-kotak tidak nunggu lama
-        setTimeout(function() {
-            typeWriter(text, i + 1);
-        }, 10); 
-    } else {
-        // Hapus kursor setelah selesai mengetik
-        chatDisplay.innerHTML = text; 
-    }
-}
+    <script>
+        const chatDisplay = document.getElementById("chat-display");
+
+        function typeWriter(text, i) {
+            if (i <= text.length) {
+                // Menampilkan teks secara bertahap
+                chatDisplay.innerHTML = text.substring(0, i) + '<span class="cursor">|</span>';
+                // Kecepatan 10ms per karakter
+                setTimeout(() => typeWriter(text, i + 1), 10);
+            } else {
+                chatDisplay.innerHTML = text; // Hapus kursor saat selesai
+            }
+        }
+
+        function sendMessage() {
+            let input = document.getElementById("user-input").value;
+            chatDisplay.innerHTML = ""; // Bersihkan layar saat kirim perintah
+            
+            fetch('/eve', {
+                method: 'POST',
+                body: JSON.stringify({ message: input }),
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                typeWriter(data.reply, 0);
+            });
+        }
+    </script>
+</body>
+</html>
