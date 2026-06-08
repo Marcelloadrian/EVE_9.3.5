@@ -2,7 +2,7 @@ import os
 import requests
 from flask import Flask, request, jsonify
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
 
 # Mengambil API Key dari Environment Variable (isi di dashboard Render)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
