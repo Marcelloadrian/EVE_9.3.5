@@ -24,14 +24,16 @@ def eve_interface():
                 "messages": [{"role": "user", "content": user_input}]
             }
         )
-        # Ambil respon dari AI
         result = response.json()
-        reply = result['choices'][0]['message']['content']
-        return jsonify({"reply": reply})
+        
+        # LOGGING: Ini akan muncul di Dashboard Render (Log)
+        print("RESPONS DARI GROQ:", result)
+        
+        if 'choices' in result:
+            reply = result['choices'][0]['message']['content']
+            return jsonify({"reply": reply})
+        else:
+            return jsonify({"reply": "AI Error: Respons tidak mengandung 'choices'. Cek Log Render."})
+            
     except Exception as e:
-        # Kalau error, kita balikin error-nya ke chat biar kelihatan
         return jsonify({"reply": "AI Error: " + str(e)})
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
