@@ -1,0 +1,38 @@
+<style>
+    /* Global Look */
+    body { 
+        background: #050505; 
+        color: #00FF41; /* Hijau Terang */
+        font-family: 'Courier New', Courier, monospace; 
+        padding: 20px; 
+        overflow: hidden;
+    }
+
+    /* Scanline Effect */
+    body::before {
+        content: " "; display: block; position: fixed; top: 0; left: 0; bottom: 0; right: 0;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                    linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+        z-index: 2; background-size: 100% 4px, 3px 100%; pointer-events: none;
+    }
+
+    /* Chat Display */
+    #chat-display { 
+        white-space: pre; 
+        font-size: 16px; 
+        line-height: 1.4;
+        text-shadow: 0 0 8px #00FF41; /* Glow Effect */
+        height: 70vh;
+        overflow-y: auto;
+    }
+
+    /* Input Style */
+    .terminal-input {
+        width: 100%; background: transparent; border: none; color: #00FF41;
+        font-family: 'Courier New', monospace; font-size: 18px; outline: none;
+        border-top: 1px solid #00FF41; padding-top: 10px;
+    }
+
+    .cursor { animation: blink 1s infinite; background: #00FF41; width: 10px; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+</style>
