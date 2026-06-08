@@ -4,16 +4,16 @@ from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__, template_folder='.')
 
-# Pastikan GROQ_API_KEY sudah di-set di Environment Variables dashboard Render lo!
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 @app.route('/')
 def home():
+    # Memanggil file Index.html (I besar)
     return render_template('Index.html')
 
 @app.route('/eve', methods=['POST'])
 def eve_interface():
-    user_data = request.json
+    user_data = request.get_json(force=True)
     user_input = user_data.get('message', '')
     
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -31,11 +31,12 @@ def eve_interface():
     
     try:
         response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
         response_data = response.json()
         reply = response_data['choices'][0]['message']['content']
         return jsonify({"reply": reply})
     except Exception as e:
-        return jsonify({"reply": "Maaf, EVE sedang ada kendala teknis."}), 500
+        return jsonify({"reply": "Error: " + str(e)}), 500
 
 @app.route('/ping', methods=['GET'])
 def ping():
