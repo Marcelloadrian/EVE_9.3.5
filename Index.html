@@ -2,94 +2,53 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>EVE SYSTEM TERMINAL</title>
+    <title>EVE SYSTEM</title>
     <style>
-        /* CSS FULL - Tampilan Cyberpunk */
         body { 
-            background: #050505; 
-            color: #00FF41; 
-            font-family: 'Courier New', monospace; 
-            margin: 0;
-            padding: 20px;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+            background: #050505; color: #00FF41; font-family: 'Courier New', monospace; 
+            margin: 0; padding: 20px; height: 100vh; display: flex; flex-direction: column;
+            touch-action: manipulation; /* Biar iPad responsif */
         }
-
-        /* Scanline Effect */
-        body::before {
-            content: " "; position: fixed; top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 1; background-size: 100% 4px, 3px 100%; pointer-events: none;
-        }
-
         #chat-display { 
-            white-space: pre-wrap; 
-            flex-grow: 1;
-            padding: 20px;
-            border: 1px solid #00FF41;
-            box-shadow: 0 0 10px #00FF4155;
-            text-shadow: 0 0 5px #00FF41;
-            overflow-y: auto;
-            z-index: 2;
-            margin-bottom: 10px;
+            white-space: pre-wrap; flex-grow: 1; padding: 25px; border: 2px solid #00FF41;
+            font-size: 18px; overflow-y: auto; margin-bottom: 20px;
         }
-
-        .chat-line { margin-bottom: 15px; border-bottom: 1px solid #00FF4122; padding-bottom: 5px; }
-
-        .controls { z-index: 2; padding-bottom: 20px; display: flex; gap: 10px; }
-
+        .controls { display: flex; gap: 15px; width: 100%; padding-bottom: 30px; }
         input { 
-            background: #000; color: #00FF41; border: 1px solid #00FF41; 
-            padding: 10px; flex-grow: 1; outline: none; font-family: inherit;
+            background: #000; color: #00FF41; border: 2px solid #00FF41; 
+            padding: 25px; flex-grow: 1; font-size: 20px; outline: none;
         }
-
         button { 
-            background: #00FF41; color: #000; border: none; 
-            padding: 10px 20px; cursor: pointer; font-weight: bold;
+            background: #00FF41; color: #000; border: none; padding: 25px 40px; 
+            font-size: 20px; font-weight: bold; cursor: pointer;
+            -webkit-tap-highlight-color: transparent; /* Hilangin shadow aneh pas di-tap */
         }
-
-        .cursor { display: inline-block; background-color: #00FF41; width: 10px; animation: blink 1s infinite; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        button:active { background: #008f11; transform: scale(0.95); }
     </style>
 </head>
 <body>
 
-    <div id="chat-display">
-        <div class="chat-line">SYSTEM INITIALIZED... EVE IS READY.</div>
-    </div>
+    <div id="chat-display">EVE SYSTEM READY...</div>
     
     <div class="controls">
-        <input type="text" id="user-input" placeholder="ENTER COMMAND..." onkeypress="if(event.key==='Enter') sendMessage()">
-        <button onclick="sendMessage()">EXECUTE</button>
+        <input type="text" id="user-input" placeholder="COMMAND...">
+        <button id="exec-btn">EXECUTE</button>
     </div>
 
     <script>
         const chatDisplay = document.getElementById("chat-display");
         const inputField = document.getElementById("user-input");
+        const execBtn = document.getElementById("exec-btn");
 
-        function typeWriter(text, i, element) {
-            if (i <= text.length) {
-                element.innerHTML = text.substring(0, i) + '<span class="cursor">|</span>';
-                chatDisplay.scrollTop = chatDisplay.scrollHeight; // Auto-scroll
-                setTimeout(() => typeWriter(text, i + 1, element), 5);
-            } else {
-                element.innerHTML = text; 
-            }
-        }
-
+        // Fungsi kirim pesan
         function sendMessage() {
-            let input = inputField.value;
+            let input = inputField.value.trim();
             if (!input) return;
             
-            // Tampilkan input user
-            chatDisplay.innerHTML += `<div class="chat-line">> ${input}</div>`;
+            chatDisplay.innerHTML += `\n\n> ${input}\n`;
             inputField.value = "";
             
-            // Buat kontainer jawaban EVE
             let responseElem = document.createElement("div");
-            responseElem.className = "chat-line";
             chatDisplay.appendChild(responseElem);
             
             fetch('/eve', {
@@ -101,6 +60,18 @@
             .then(data => {
                 typeWriter(data.reply, 0, responseElem);
             });
+        }
+
+        // Event listener biar tombol & enter jalan
+        execBtn.onpointerdown = sendMessage;
+        inputField.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
+
+        function typeWriter(text, i, element) {
+            if (i <= text.length) {
+                element.innerHTML = text.substring(0, i);
+                chatDisplay.scrollTop = chatDisplay.scrollHeight;
+                setTimeout(() => typeWriter(text, i + 1, element), 5);
+            }
         }
     </script>
 </body>
