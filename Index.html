@@ -6,27 +6,35 @@
     <style>
         body { background: #000; color: #0f0; font-family: monospace; padding: 20px; }
         #chat { height: 300px; overflow-y: scroll; border: 1px solid #0f0; margin-bottom: 10px; padding: 10px; }
-        input { width: 80%; background: #000; color: #0f0; border: 1px solid #0f0; padding: 10px; }
+        input { width: 70%; background: #000; color: #0f0; border: 1px solid #0f0; padding: 10px; }
+        button { background: #0f0; color: #000; border: none; padding: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div id="chat"></div>
+    <div id="chat">EVE: System Online. Ready to assist.</div>
+    <br>
     <input type="text" id="userInput" placeholder="Tanya EVE...">
     <button onclick="sendMessage()">Send</button>
 
     <script>
-        async function sendMessage() {
-            const input = document.getElementById('userInput').value;
-            const chat = document.getElementById('chat');
-            chat.innerHTML += `<div>> ${input}</div>`;
+        function sendMessage() {
+            var input = document.getElementById('userInput').value;
+            var chat = document.getElementById('chat');
+            if(input.trim() == "") return;
             
-            const response = await fetch('/eve', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({message: input})
-            });
-            const data = await response.json();
-            chat.innerHTML += `<div>EVE: ${data.reply}</div>`;
+            chat.innerHTML += '<br>> ' + input;
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/eve", true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var res = JSON.parse(xhr.responseText);
+                    chat.innerHTML += '<br>EVE: ' + res.reply;
+                    chat.scrollTop = chat.scrollHeight;
+                }
+            };
+            xhr.send(JSON.stringify({message: input}));
             document.getElementById('userInput').value = '';
         }
     </script>
