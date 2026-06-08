@@ -18,6 +18,29 @@ def save_jadwal(data):
 def home():
     return send_from_directory(BASE_DIR, 'Index.html')
 
+import os
+import json
+import requests
+import re
+from flask import Flask, request, jsonify, send_from_directory
+
+app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+JADWAL_FILE = "jadwal.json"
+
+def load_jadwal():
+    if not os.path.exists(JADWAL_FILE): return []
+    with open(JADWAL_FILE, 'r') as f: 
+        try: return json.load(f)
+        except: return []
+
+def save_jadwal(data):
+    with open(JADWAL_FILE, 'w') as f: json.dump(data, f)
+
+@app.route('/')
+def home():
+    return send_from_directory(BASE_DIR, 'Index.html')
+
 @app.route('/eve', methods=['POST'])
 def eve_interface():
     api_key = os.environ.get("GROQ_API_KEY")
@@ -25,18 +48,26 @@ def eve_interface():
     user_input = data.get('message', '')
     msg_lower = user_input.lower()
     
-    # 1. Routing Lokal: Kelola Jadwal
+    # 1. LOGIC JADWAL (LOCAL ROUTING)
     if "jadwal" in msg_lower or "schedule" in msg_lower:
         jadwal = load_jadwal()
-        if "tambah" in msg_lower or "catat" in msg_lower:
-            new_task = user_input.replace("tambah", "").replace("catat", "").strip()
-            jadwal.append(new_task)
-            save_jadwal(jadwal)
-            return jsonify({"reply": "EVE (Local): Oke, sudah dicatat: " + new_task})
+        
+        # Cek apakah user mau menambah jadwal
+        if any(word in msg_lower for word in ["tambah", "catat"]):
+            # Hapus keyword agar sisa teksnya saja yang disimpan
+            new_task = re.sub(r'(tambah|catat|jadwal|schedule)', '', user_input, flags=re.IGNORECASE).strip()
+            if new_task:
+                jadwal.append(new_task)
+                save_jadwal(jadwal)
+                return jsonify({"reply": "EVE (LOCAL): TUGAS DITAMBAHKAN: " + new_task.upper()})
+            else:
+                return jsonify({"reply": "EVE (LOCAL): MAU CATAT APA?"})
+        
+        # Jika cuma tanya jadwal
         else:
-            return jsonify({"reply": "EVE (Local): Jadwal kamu: " + (", ".join(jadwal) if jadwal else "Kosong")})
+            return jsonify({"reply": "EVE (LOCAL): JADWAL ANDA:\n" + ("\n".join([f"- {j}" for j in jadwal]) if jadwal else "KOSONG")})
 
-    # 2. Routing Global: Tanya AI Groq
+    # 2. LOGIC AI (GLOBAL ROUTING)
     try:
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -47,9 +78,9 @@ def eve_interface():
             }
         )
         reply = response.json()['choices'][0]['message']['content']
-        return jsonify({"reply": "EVE (Global): " + reply})
+        return jsonify({"reply": "EVE (GLOBAL): " + reply.upper()})
     except Exception as e:
-        return jsonify({"reply": "EVE: Error koneksi ke server global."})
+        return jsonify({"reply": "EVE: ERROR GLOBAL - " + str(e)})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
