@@ -1,38 +1,36 @@
-<div id="chat-display" style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #000; color: #0f0; padding: 20px; min-height: 200px;"></div>
+// Pastikan chat-display kosong dulu
+const chatDisplay = document.getElementById("chat-display");
 
-<script>
-    function typeWriter(text, i, fnCallback) {
-        if (i < text.length) {
-            document.getElementById("chat-display").innerHTML = text.substring(0, i + 1) + '<span class="cursor">|</span>';
-            setTimeout(function() {
-                typeWriter(text, i + 1, fnCallback);
-            }, 15); // Kecepatan ketik (15ms per karakter)
-        } else if (typeof fnCallback == 'function') {
-            setTimeout(fnCallback, 700);
-        }
-    }
+function sendMessage() {
+    let input = document.getElementById("user-input").value;
+    
+    // Reset tampilan sebelum menerima respon baru
+    chatDisplay.innerHTML = '<span class="cursor">|</span>'; 
+    
+    fetch('/eve', {
+        method: 'POST',
+        body: JSON.stringify({ message: input }),
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Panggil fungsi typeWriter dengan teks dari server
+        typeWriter(data.reply, 0);
+    });
+}
 
-    function sendMessage() {
-        let input = document.getElementById("user-input").value;
-        fetch('/eve', {
-            method: 'POST',
-            body: JSON.stringify({ message: input }),
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Panggil efek ketik dengan teks dari server
-            typeWriter(data.reply, 0);
-        });
+function typeWriter(text, i) {
+    if (i < text.length) {
+        // Menggunakan substring untuk menambah karakter satu-satu
+        // Kita pakai text.charAt(i) biar lebih aman untuk karakter khusus seperti \n
+        chatDisplay.innerHTML = text.substring(0, i + 1) + '<span class="cursor">|</span>';
+        
+        // Kecepatan diatur lebih cepat (10ms) agar kotak-kotak tidak nunggu lama
+        setTimeout(function() {
+            typeWriter(text, i + 1);
+        }, 10); 
+    } else {
+        // Hapus kursor setelah selesai mengetik
+        chatDisplay.innerHTML = text; 
     }
-</script>
-
-<style>
-    .cursor {
-        display: inline-block;
-        background-color: #0f0;
-        width: 10px;
-        animation: blink 1s infinite;
-    }
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-</style>
+}
