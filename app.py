@@ -16,6 +16,10 @@ def load_data(f):
 def save_data(f, data):
     with open(f, 'w') as file: json.dump(data, file)
 
+@app.route('/')
+def home():
+    return send_from_directory(BASE_DIR, 'Index.html')
+
 @app.route('/eve', methods=['POST'])
 def eve_interface():
     api_key = os.environ.get("GROQ_API_KEY")
@@ -23,39 +27,58 @@ def eve_interface():
     user_input = data.get('message', '')
     msg = user_input.lower()
 
-    # --- 1. DASHBOARD / STATUS ---
+    # 1. STATUS/DASHBOARD (Boxed Output)
     if any(k in msg for k in ["dashboard", "status", "info"]):
         jadwal = load_data("jadwal.json")
         notes = load_data("notes.json")
-        reply = "-- DASHBOARD --\n[JADWAL]: " + ("\n".join([f"{i+1}. {j}" for i, j in enumerate(jadwal)]) if jadwal else "KOSONG")
-        reply += "\n\n[NOTES]: " + ("\n".join([f"- {n}" for n in notes]) if notes else "KOSONG")
+        
+        header = "┌──────────┬──────────────────────────┐\n│   JAM    │         KEGIATAN         │\n├──────────┼──────────────────────────┤\n"
+        body = "\n".join([f"│ {j['time']:<8} │ {j['task'].upper():<24} │" for j in jadwal]) if jadwal else "│   ---    │      JADWAL KOSONG       │"
+        footer = "\n└──────────┴──────────────────────────┘"
+        
+        reply = "-- EVE SYSTEM DASHBOARD --\n" + header + body + footer
+        reply += "\n\n[ARSIP NOTES]\n" + ("\n".join([f"- {n.upper()}" for n in notes]) if notes else "KOSONG")
         return jsonify({"reply": reply})
 
-    # --- 2. HAPUS LOGIC (Apapun yang ada kata 'hapus') ---
-    if "hapus" in msg or "selesai" in msg or "buang" in msg:
-        target = re.sub(r'(hapus|selesai|buang|tugas|jadwal|note|catatan)', '', msg, flags=re.IGNORECASE).strip()
+    # 2. RESET/BERSIHKAN (Semua)
+    if any(k in msg for k in ["reset", "bersihkan", "kosongkan semua"]):
+        save_data("jadwal.json", [])
+        return jsonify({"reply": "EVE: SEMUA JADWAL BERHASIL DIHAPUS."})
+
+    # 3. HAPUS SATU ITEM (Spesifik)
+    if "hapus" in msg or "selesai" in msg:
+        target = re.sub(r'(hapus|selesai|tugas|jadwal)', '', msg, flags=re.IGNORECASE).strip()
         jadwal = load_data("jadwal.json")
-        new_jadwal = [j for j in jadwal if target not in j.lower()]
-        save_data("jadwal.json", new_jadwal)
-        return jsonify({"reply": f"EVE: '{target.upper()}' BERHASIL DIHAPUS DARI JADWAL."})
+        new_jadwal = [j for j in jadwal if target.lower() not in j['task'].lower()]
+        
+        if len(new_jadwal) < len(jadwal):
+            save_data("jadwal.json", new_jadwal)
+            reply = f"EVE: '{target.upper()}' BERHASIL DIHAPUS."
+        else:
+            reply = f"EVE: ITEM '{target.upper()}' TIDAK DITEMUKAN."
+        return jsonify({"reply": reply})
 
-    # --- 3. NOTE LOGIC (Khusus buat yang ada kata 'note') ---
-    if "note" in msg or "catat" in msg:
-        note_content = re.sub(r'(note|catat|tulis)', '', msg, flags=re.IGNORECASE).strip()
-        notes = load_data("notes.json")
-        notes.append(note_content)
-        save_data("notes.json", notes)
-        return jsonify({"reply": f"EVE: NOTE DISIMPAN: {note_content.upper()}"})
-
-    # --- 4. JADWAL LOGIC (Sisanya) ---
+    # 4. PASANG (Auto-Sort Time)
     if any(k in msg for k in ["pasang", "tambah", "jadwal"]):
-        task = re.sub(r'(pasang|tambah|jadwal|ingetin)', '', msg, flags=re.IGNORECASE).strip()
+        task_text = re.sub(r'(pasang|tambah|jadwal|ingetin)', '', msg, flags=re.IGNORECASE).strip()
+        time_match = re.search(r'(\d{1,2}[:.]\d{2})', task_text)
+        time = time_match.group(1).replace('.', ':') if time_match else "23:59"
+        
         jadwal = load_data("jadwal.json")
-        jadwal.append(task)
+        jadwal.append({"task": task_text, "time": time})
+        jadwal = sorted(jadwal, key=lambda x: x['time'])
         save_data("jadwal.json", jadwal)
-        return jsonify({"reply": f"EVE: TUGAS DITAMBAHKAN: {task.upper()}"})
+        return jsonify({"reply": f"EVE: '{task_text.upper()}' DITAMBAHKAN PADA {time}"})
 
-    # --- 5. GLOBAL AI ---
+    # 5. NOTE
+    if "note" in msg or "catat" in msg:
+        note = re.sub(r'(note|catat)', '', msg, flags=re.IGNORECASE).strip()
+        notes = load_data("notes.json")
+        notes.append(note)
+        save_data("notes.json", notes)
+        return jsonify({"reply": f"EVE: NOTE DISIMPAN: {note.upper()}"})
+
+    # 6. GLOBAL AI
     try:
         response = requests.post("https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
@@ -66,4 +89,5 @@ def eve_interface():
         return jsonify({"reply": "EVE: AI ERROR."})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
