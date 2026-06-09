@@ -1,38 +1,59 @@
-<div id="chat-display" style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #000; color: #0f0; padding: 20px; min-height: 200px;"></div>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE SYSTEM</title>
+    <style>
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; padding: 20px; }
+        #chat-display { white-space: pre-wrap; border: 1px solid #0f0; padding: 15px; height: 300px; overflow-y: scroll; margin-bottom: 20px; }
+        .input-area { display: flex; gap: 10px; }
+        input { background: #000; color: #0f0; border: 1px solid #0f0; padding: 15px; flex-grow: 1; outline: none; }
+        button { background: #0f0; color: #000; padding: 15px; border: none; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
 
-<script>
-    function typeWriter(text, i, fnCallback) {
-        if (i < text.length) {
-            document.getElementById("chat-display").innerHTML = text.substring(0, i + 1) + '<span class="cursor">|</span>';
-            setTimeout(function() {
-                typeWriter(text, i + 1, fnCallback);
-            }, 15); // Kecepatan ketik (15ms per karakter)
-        } else if (typeof fnCallback == 'function') {
-            setTimeout(fnCallback, 700);
+    <div id="chat-display">EVE SYSTEM READY...</div>
+    
+    <div class="input-area">
+        <input type="text" id="user-input" placeholder="COMMAND...">
+        <button onclick="sendMessage()">EXECUTE</button>
+    </div>
+
+    <script>
+        function sendMessage() {
+            var input = document.getElementById("user-input");
+            var display = document.getElementById("chat-display");
+            var msg = input.value;
+            
+            if(!msg) return;
+
+            // Tampilkan input user langsung
+            display.innerText += "\n> " + msg;
+            input.value = "";
+
+            // Gunakan XMLHttpRequest untuk kompatibilitas iPad
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "https://nama-project-lo.onrender.com/eve", true);
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    var data = JSON.parse(xhr.responseText);
+                    // Tampilkan jawaban langsung (tanpa efek ketik)
+                    display.innerText += "\n" + data.reply;
+                    display.scrollTop = display.scrollHeight;
+                }
+            };
+            
+            xhr.send("message=" + encodeURIComponent(msg));
         }
-    }
 
-    function sendMessage() {
-        let input = document.getElementById("user-input").value;
-        fetch('/eve', {
-            method: 'POST',
-            body: JSON.stringify({ message: input }),
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Panggil efek ketik dengan teks dari server
-            typeWriter(data.reply, 0);
-        });
-    }
-</script>
-
-<style>
-    .cursor {
-        display: inline-block;
-        background-color: #0f0;
-        width: 10px;
-        animation: blink 1s infinite;
-    }
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-</style>
+        // Support tombol Enter
+        document.getElementById("user-input").onkeydown = function(e) {
+            if (e.keyCode === 13) sendMessage();
+        };
+    </script>
+</body>
+</html>
