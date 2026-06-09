@@ -4,51 +4,34 @@
     <meta charset="UTF-8">
     <title>EVE SYSTEM</title>
     <style>
-        /* CSS SEMUA DI DALAM SINI */
         body { 
-            background: #050505; color: #00FF41; font-family: 'Courier New', monospace; 
+            background: #000; color: #0f0; font-family: 'Courier New', monospace; 
             margin: 0; padding: 20px; height: 100vh; display: flex; flex-direction: column;
-            touch-action: manipulation;
-        }
-
-        /* Scanline */
-        body::before {
-            content: " "; position: fixed; top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 1; background-size: 100% 4px, 3px 100%; pointer-events: none;
         }
 
         #chat-display { 
-            white-space: pre-wrap; flex-grow: 1; padding: 25px; border: 2px solid #00FF41;
-            font-size: 18px; overflow-y: auto; margin-bottom: 20px; z-index: 2;
+            white-space: pre-wrap; flex-grow: 1; padding: 20px; 
+            border: 2px solid #0f0; font-size: 18px; overflow-y: auto; margin-bottom: 20px;
         }
 
-        .controls { 
-            display: flex; gap: 15px; width: 100%; padding-bottom: 30px; 
-            z-index: 10; position: relative; 
-        }
+        .controls { display: flex; gap: 10px; width: 100%; padding-bottom: 20px; }
 
         input { 
-            background: #000; color: #00FF41; border: 2px solid #00FF41; 
-            padding: 25px; flex-grow: 1; font-size: 20px; outline: none;
+            background: #000; color: #0f0; border: 2px solid #0f0; 
+            padding: 20px; flex-grow: 1; font-size: 18px; outline: none;
         }
 
         button { 
-            background: #00FF41; color: #000; border: none; padding: 25px 40px; 
-            font-size: 20px; font-weight: bold; cursor: pointer;
-            pointer-events: auto !important; /* Biar iPad bisa klik */
-            -webkit-tap-highlight-color: transparent;
+            background: #0f0; color: #000; border: none; padding: 20px 30px; 
+            font-size: 18px; font-weight: bold; cursor: pointer;
         }
 
-        button:active { background: #008f11; transform: scale(0.95); }
-        .cursor { display: inline-block; background-color: #00FF41; width: 12px; height: 20px; animation: blink 1s infinite; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        button:active { background: #080; }
     </style>
 </head>
 <body>
 
-    <div id="chat-display">EVE SYSTEM READY...</div>
+    <div id="chat-display">EVE SYSTEM ONLINE.</div>
     
     <div class="controls">
         <input type="text" id="user-input" placeholder="COMMAND...">
@@ -60,13 +43,27 @@
         const inputField = document.getElementById("user-input");
         const execBtn = document.getElementById("exec-btn");
 
+        // Fungsi typewriter super ringan tanpa CSS animation
+        function typeWriter(text, element, speed) {
+            let i = 0;
+            element.innerHTML = ""; // Bersihkan kontainer
+            function typing() {
+                if (i < text.length) {
+                    element.innerHTML += text.charAt(i);
+                    i++;
+                    setTimeout(typing, speed);
+                    chatDisplay.scrollTop = chatDisplay.scrollHeight;
+                }
+            }
+            typing();
+        }
+
         function sendMessage() {
             let input = inputField.value.trim();
             if (!input) return;
             
             chatDisplay.innerHTML += `\n\n> ${input}\n`;
             inputField.value = "";
-            chatDisplay.scrollTop = chatDisplay.scrollHeight;
             
             let responseElem = document.createElement("div");
             chatDisplay.appendChild(responseElem);
@@ -78,32 +75,13 @@
             })
             .then(res => res.json())
             .then(data => {
-                typeWriter(data.reply, 0, responseElem);
-            })
-            .catch(err => {
-                responseElem.innerText = "ERROR: Connection failed.";
+                // Panggil fungsi typewriter dengan speed 10ms (sangat ringan)
+                typeWriter("EVE: " + data.reply, responseElem, 10);
             });
         }
 
-        // Trigger pakai pointerdown untuk iPad
-        execBtn.onpointerdown = (e) => {
-            e.preventDefault(); // Mencegah klik delay di Safari
-            sendMessage();
-        };
-
-        inputField.onkeypress = (e) => { 
-            if (e.key === 'Enter') sendMessage(); 
-        };
-
-        function typeWriter(text, i, element) {
-            if (i <= text.length) {
-                element.innerHTML = text.substring(0, i) + '<span class="cursor">|</span>';
-                chatDisplay.scrollTop = chatDisplay.scrollHeight;
-                setTimeout(() => typeWriter(text, i + 1, element), 5);
-            } else {
-                element.innerHTML = text; 
-            }
-        }
+        execBtn.onclick = sendMessage;
+        inputField.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
     </script>
 </body>
 </html>
