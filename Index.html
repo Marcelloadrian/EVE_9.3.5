@@ -1,51 +1,38 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EVE SYSTEM</title>
-    <style>
-        body { background: #000; color: #0f0; font-family: monospace; padding: 20px; }
-        #display { border: 1px solid #0f0; padding: 15px; height: 300px; margin-bottom: 20px; overflow-y: auto; white-space: pre-wrap; }
-        .input-area { display: flex; gap: 10px; }
-        input { background: #000; color: #0f0; border: 1px solid #0f0; padding: 15px; flex-grow: 1; outline: none; }
-        button { background: #0f0; color: #000; padding: 15px; border: none; cursor: pointer; font-weight: bold; }
-    </style>
-</head>
-<body>
+<div id="chat-display" style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #000; color: #0f0; padding: 20px; min-height: 200px;"></div>
 
-    <div id="display">EVE SYSTEM READY...</div>
+<script>
+    function typeWriter(text, i, fnCallback) {
+        if (i < text.length) {
+            document.getElementById("chat-display").innerHTML = text.substring(0, i + 1) + '<span class="cursor">|</span>';
+            setTimeout(function() {
+                typeWriter(text, i + 1, fnCallback);
+            }, 15); // Kecepatan ketik (15ms per karakter)
+        } else if (typeof fnCallback == 'function') {
+            setTimeout(fnCallback, 700);
+        }
+    }
 
-    <form id="eve-form" class="input-area">
-        <input type="text" id="in" name="message" placeholder="COMMAND..." required>
-        <button type="submit">EXECUTE</button>
-    </form>
+    function sendMessage() {
+        let input = document.getElementById("user-input").value;
+        fetch('/eve', {
+            method: 'POST',
+            body: JSON.stringify({ message: input }),
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Panggil efek ketik dengan teks dari server
+            typeWriter(data.reply, 0);
+        });
+    }
+</script>
 
-    <script>
-        document.getElementById("eve-form").onsubmit = function(e) {
-            e.preventDefault(); // Mencegah reload halaman
-            
-            var display = document.getElementById("display");
-            var input = document.getElementById("in");
-            var msg = input.value;
-            
-            display.innerText += "\n> " + msg;
-            input.value = "";
-
-            var xhr = new XMLHttpRequest();
-            // Ganti URL ini ke URL Render lo
-            xhr.open("POST", "https://nama-project-lo.onrender.com/eve", true);
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            
-            xhr.onload = function() {
-                if (xhr.status === 200) {
-                    var res = JSON.parse(xhr.responseText);
-                    display.innerText += "\n" + res.reply;
-                    display.scrollTop = display.scrollHeight;
-                }
-            };
-            xhr.send("message=" + encodeURIComponent(msg));
-        };
-    </script>
-</body>
-</html>
+<style>
+    .cursor {
+        display: inline-block;
+        background-color: #0f0;
+        width: 10px;
+        animation: blink 1s infinite;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+</style>
