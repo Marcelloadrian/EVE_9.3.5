@@ -106,7 +106,7 @@ def eve_interface():
         - AFEKSI: Tunjukkan loyalitasmu dengan cara yang "tsundere" (dingin di luar, peduli di dalam).
         
         FORMAT RESPON:
-        - Jawab dengan gaya terminal/sci-fi."""
+        - Jawab dengan gaya normal bahasa inggris."""
         
         response = requests.post("https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
