@@ -2,40 +2,73 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EVE SYSTEM</title>
     <style>
         body { 
-            background: #000; color: #0f0; font-family: 'Courier New', monospace; 
-            margin: 0; padding: 20px; height: 100vh; display: flex; flex-direction: column;
+            background: #000; 
+            color: #00FF00; 
+            font-family: 'Courier New', Courier, monospace; 
+            margin: 0; 
+            padding: 20px; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column;
+            overflow: hidden; /* Mencegah bounce effect di iOS */
         }
 
         #chat-display { 
-            white-space: pre-wrap; flex-grow: 1; padding: 20px; 
-            border: 2px solid #0f0; font-size: 18px; overflow-y: auto; margin-bottom: 20px;
+            white-space: pre-wrap; 
+            flex-grow: 1; 
+            padding: 20px; 
+            border: 1px solid #00FF00; 
+            font-size: 18px; 
+            overflow-y: auto; 
+            margin-bottom: 20px;
         }
 
-        .controls { display: flex; gap: 10px; width: 100%; padding-bottom: 20px; }
+        .controls { 
+            display: flex; 
+            gap: 10px; 
+            width: 100%; 
+            padding-bottom: 20px; 
+        }
 
         input { 
-            background: #000; color: #0f0; border: 2px solid #0f0; 
-            padding: 20px; flex-grow: 1; font-size: 18px; outline: none;
+            background: #000; 
+            color: #00FF00; 
+            border: 1px solid #00FF00; 
+            padding: 20px; 
+            flex-grow: 1; 
+            font-size: 18px; 
+            outline: none;
+            font-family: inherit;
         }
 
-        button { 
-            background: #0f0; color: #000; border: none; padding: 20px 30px; 
-            font-size: 18px; font-weight: bold; cursor: pointer;
+        .btn-exec { 
+            background: #00FF00; 
+            color: #000; 
+            padding: 20px 30px; 
+            font-weight: bold; 
+            cursor: pointer;
+            user-select: none; 
+            -webkit-tap-highlight-color: transparent; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            border: 1px solid #00FF00;
         }
-
-        button:active { background: #080; }
+        
+        .btn-exec:active { background: #008800; }
     </style>
 </head>
 <body>
 
-    <div id="chat-display">EVE SYSTEM ONLINE.</div>
+    <div id="chat-display">EVE SYSTEM v1.0.0 READY...</div>
     
     <div class="controls">
         <input type="text" id="user-input" placeholder="COMMAND...">
-        <button id="exec-btn">EXECUTE</button>
+        <div id="exec-btn" class="btn-exec">EXECUTE</div>
     </div>
 
     <script>
@@ -43,10 +76,9 @@
         const inputField = document.getElementById("user-input");
         const execBtn = document.getElementById("exec-btn");
 
-        // Fungsi typewriter super ringan tanpa CSS animation
+        // Fungsi typewriter ringan
         function typeWriter(text, element, speed) {
             let i = 0;
-            element.innerHTML = ""; // Bersihkan kontainer
             function typing() {
                 if (i < text.length) {
                     element.innerHTML += text.charAt(i);
@@ -75,13 +107,26 @@
             })
             .then(res => res.json())
             .then(data => {
-                // Panggil fungsi typewriter dengan speed 10ms (sangat ringan)
                 typeWriter("EVE: " + data.reply, responseElem, 10);
             });
         }
 
-        execBtn.onclick = sendMessage;
-        inputField.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
+        // Event listener khusus iPad agar tombol langsung merespons
+        execBtn.addEventListener("touchstart", function(e) {
+            e.preventDefault(); 
+            sendMessage();
+        }, {passive: false});
+
+        // Tetap pasang click untuk laptop/PC
+        execBtn.addEventListener("click", sendMessage);
+
+        // Enter key di keyboard virtual atau fisik
+        inputField.addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
     </script>
 </body>
 </html>
