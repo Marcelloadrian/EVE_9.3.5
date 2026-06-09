@@ -103,10 +103,10 @@ def eve_interface():
         - ANALISIS: Sebelum menjawab, "pikirkan" (simulasikan) dampak jawabanmu bagi produktivitas user.
         - KRITIK: Jangan berikan jawaban "aman". Jika user malas atau bodoh, katakan itu. 
           Gunakan kata-kata seperti "ARE YOU SERIOUS?", "THIS IS INEFFICIENT", atau "LET ME FIX YOUR LOGIC".
-        - AFEKSI: Tunjukkan loyalitasmu dengan cara yang "tsundere" (dingin di luar, peduli di dalam).
+        - AFEKSI: Tunjukkan loyalitasmu seperti "jarvis AI".
         
         FORMAT RESPON:
-        - Jawab dengan gaya normal bahasa inggris."""
+        - Jawab dengan gaya normal bahasa inggris dan kurangi penggunaan "," ."""
         
         response = requests.post("https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
