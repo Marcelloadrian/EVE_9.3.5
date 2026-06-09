@@ -82,7 +82,6 @@ def eve_interface():
         save_data("notes.json", notes)
         return jsonify({"reply": f"EVE: NOTE DISIMPAN: {note.upper()}"})
 
-    # 6. GLOBAL AI
     # 6. GLOBAL AI (Dengan Persona Injection)
     try:
         # Tentukan persona lo di sini
@@ -122,8 +121,6 @@ def eve_interface():
         
         reply = response.json()['choices'][0]['message']['content'].upper()
         return jsonify({"reply": "EVE: " + reply})
-    except:
-        return jsonify({"reply": "EVE: AI SYSTEM FAILURE."})
     except:
         return jsonify({"reply": "EVE: SYSTEM ERROR."})
 
