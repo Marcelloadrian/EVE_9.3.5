@@ -3,28 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>EVE SYSTEM</title>
-    <style>
-        body { 
-            background: #050505; color: #00FF41; font-family: 'Courier New', monospace; 
-            margin: 0; padding: 20px; height: 100vh; display: flex; flex-direction: column;
-            touch-action: manipulation; /* Biar iPad responsif */
-        }
-        #chat-display { 
-            white-space: pre-wrap; flex-grow: 1; padding: 25px; border: 2px solid #00FF41;
-            font-size: 18px; overflow-y: auto; margin-bottom: 20px;
-        }
-        .controls { display: flex; gap: 15px; width: 100%; padding-bottom: 30px; }
-        input { 
-            background: #000; color: #00FF41; border: 2px solid #00FF41; 
-            padding: 25px; flex-grow: 1; font-size: 20px; outline: none;
-        }
-        button { 
-            background: #00FF41; color: #000; border: none; padding: 25px 40px; 
-            font-size: 20px; font-weight: bold; cursor: pointer;
-            -webkit-tap-highlight-color: transparent; /* Hilangin shadow aneh pas di-tap */
-        }
-        button:active { background: #008f11; transform: scale(0.95); }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -40,7 +19,6 @@
         const inputField = document.getElementById("user-input");
         const execBtn = document.getElementById("exec-btn");
 
-        // Fungsi kirim pesan
         function sendMessage() {
             let input = inputField.value.trim();
             if (!input) return;
@@ -62,15 +40,16 @@
             });
         }
 
-        // Event listener biar tombol & enter jalan
         execBtn.onpointerdown = sendMessage;
         inputField.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
 
         function typeWriter(text, i, element) {
             if (i <= text.length) {
-                element.innerHTML = text.substring(0, i);
+                element.innerHTML = text.substring(0, i) + '<span class="cursor">|</span>';
                 chatDisplay.scrollTop = chatDisplay.scrollHeight;
                 setTimeout(() => typeWriter(text, i + 1, element), 5);
+            } else {
+                element.innerHTML = text; 
             }
         }
     </script>
