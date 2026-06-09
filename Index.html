@@ -29,28 +29,39 @@
             
             if(!msg) return;
 
-            // Tampilkan input user langsung
             display.innerText += "\n> " + msg;
             input.value = "";
 
-            // Gunakan XMLHttpRequest untuk kompatibilitas iPad
             var xhr = new XMLHttpRequest();
+            // Ganti URL ini dengan URL Render lo
             xhr.open("POST", "https://nama-project-lo.onrender.com/eve", true);
+            
+            // Header ini penting agar cocok dengan request.form.get di Flask
             xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
             
             xhr.onload = function() {
                 if (xhr.status === 200) {
-                    var data = JSON.parse(xhr.responseText);
-                    // Tampilkan jawaban langsung (tanpa efek ketik)
-                    display.innerText += "\n" + data.reply;
-                    display.scrollTop = display.scrollHeight;
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        display.innerText += "\n" + data.reply;
+                        display.scrollTop = display.scrollHeight;
+                    } catch(e) {
+                        display.innerText += "\nEVE: ERROR PARSING DATA.";
+                    }
+                } else {
+                    display.innerText += "\nEVE: SERVER ERROR " + xhr.status;
                 }
             };
+
+            xhr.onerror = function() {
+                display.innerText += "\nEVE: NETWORK ERROR.";
+            };
             
+            // Mengirim data sebagai form (message=isi_input)
             xhr.send("message=" + encodeURIComponent(msg));
         }
 
-        // Support tombol Enter
+        // Support Enter key
         document.getElementById("user-input").onkeydown = function(e) {
             if (e.keyCode === 13) sendMessage();
         };
