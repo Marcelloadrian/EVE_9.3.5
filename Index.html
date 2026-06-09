@@ -1,132 +1,51 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EVE SYSTEM</title>
     <style>
-        body { 
-            background: #000; 
-            color: #00FF00; 
-            font-family: 'Courier New', Courier, monospace; 
-            margin: 0; 
-            padding: 20px; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column;
-            overflow: hidden; /* Mencegah bounce effect di iOS */
-        }
-
-        #chat-display { 
-            white-space: pre-wrap; 
-            flex-grow: 1; 
-            padding: 20px; 
-            border: 1px solid #00FF00; 
-            font-size: 18px; 
-            overflow-y: auto; 
-            margin-bottom: 20px;
-        }
-
-        .controls { 
-            display: flex; 
-            gap: 10px; 
-            width: 100%; 
-            padding-bottom: 20px; 
-        }
-
-        input { 
-            background: #000; 
-            color: #00FF00; 
-            border: 1px solid #00FF00; 
-            padding: 20px; 
-            flex-grow: 1; 
-            font-size: 18px; 
-            outline: none;
-            font-family: inherit;
-        }
-
-        .btn-exec { 
-            background: #00FF00; 
-            color: #000; 
-            padding: 20px 30px; 
-            font-weight: bold; 
-            cursor: pointer;
-            user-select: none; 
-            -webkit-tap-highlight-color: transparent; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
-            border: 1px solid #00FF00;
-        }
-        
-        .btn-exec:active { background: #008800; }
+        body { background: #000; color: #0f0; font-family: monospace; padding: 20px; }
+        #display { border: 1px solid #0f0; padding: 15px; height: 300px; margin-bottom: 20px; overflow-y: auto; white-space: pre-wrap; }
+        .input-area { display: flex; gap: 10px; }
+        input { background: #000; color: #0f0; border: 1px solid #0f0; padding: 15px; flex-grow: 1; outline: none; }
+        button { background: #0f0; color: #000; padding: 15px; border: none; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="chat-display">EVE SYSTEM 9.3.5 READY...</div>
-    
-    <div class="controls">
-        <input type="text" id="user-input" placeholder="COMMAND...">
-        <div id="exec-btn" class="btn-exec">EXECUTE</div>
-    </div>
+    <div id="display">EVE SYSTEM READY...</div>
+
+    <form id="eve-form" class="input-area">
+        <input type="text" id="in" name="message" placeholder="COMMAND..." required>
+        <button type="submit">EXECUTE</button>
+    </form>
 
     <script>
-        const chatDisplay = document.getElementById("chat-display");
-        const inputField = document.getElementById("user-input");
-        const execBtn = document.getElementById("exec-btn");
+        document.getElementById("eve-form").onsubmit = function(e) {
+            e.preventDefault(); // Mencegah reload halaman
+            
+            var display = document.getElementById("display");
+            var input = document.getElementById("in");
+            var msg = input.value;
+            
+            display.innerText += "\n> " + msg;
+            input.value = "";
 
-        // Fungsi typewriter ringan
-        function typeWriter(text, element, speed) {
-            let i = 0;
-            function typing() {
-                if (i < text.length) {
-                    element.innerHTML += text.charAt(i);
-                    i++;
-                    setTimeout(typing, speed);
-                    chatDisplay.scrollTop = chatDisplay.scrollHeight;
+            var xhr = new XMLHttpRequest();
+            // Ganti URL ini ke URL Render lo
+            xhr.open("POST", "https://nama-project-lo.onrender.com/eve", true);
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    var res = JSON.parse(xhr.responseText);
+                    display.innerText += "\n" + res.reply;
+                    display.scrollTop = display.scrollHeight;
                 }
-            }
-            typing();
-        }
-
-        function sendMessage() {
-            let input = inputField.value.trim();
-            if (!input) return;
-            
-            chatDisplay.innerHTML += `\n\n> ${input}\n`;
-            inputField.value = "";
-            
-            let responseElem = document.createElement("div");
-            chatDisplay.appendChild(responseElem);
-            
-            fetch('/eve', {
-                method: 'POST',
-                body: JSON.stringify({ message: input }),
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(res => res.json())
-            .then(data => {
-                typeWriter("EVE: " + data.reply, responseElem, 10);
-            });
-        }
-
-        // Event listener khusus iPad agar tombol langsung merespons
-        execBtn.addEventListener("touchstart", function(e) {
-            e.preventDefault(); 
-            sendMessage();
-        }, {passive: false});
-
-        // Tetap pasang click untuk laptop/PC
-        execBtn.addEventListener("click", sendMessage);
-
-        // Enter key di keyboard virtual atau fisik
-        inputField.addEventListener("keydown", function(event) {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                sendMessage();
-            }
-        });
+            };
+            xhr.send("message=" + encodeURIComponent(msg));
+        };
     </script>
 </body>
 </html>
