@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Menghindari blokir dari browser iPad
+CORS(app)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def load_data(f):
@@ -22,14 +22,16 @@ def save_data(f, data):
 def home():
     return send_from_directory(BASE_DIR, 'Index.html')
 
+@app.route('/style.css')
+def serve_css():
+    return send_from_directory(BASE_DIR, 'style.css')
+
 @app.route('/eve', methods=['POST'])
 def eve_interface():
     api_key = os.environ.get("GROQ_API_KEY")
     
-    # Deteksi apakah data datang dari FORM (iPad) atau JSON
     if request.is_json:
-        data = request.get_json(force=True)
-        user_input = data.get('message', '')
+        user_input = request.get_json(force=True).get('message', '')
     else:
         user_input = request.form.get('message', '')
     
@@ -41,8 +43,7 @@ def eve_interface():
         notes = load_data("notes.json")
         header = "┌──────────┬──────────────────────────┐\n│    JAM    │         KEGIATAN         │\n├──────────┼──────────────────────────┤\n"
         body = "\n".join([f"│ {j['time']:<8} │ {j['task'].upper():<24} │" for j in jadwal]) if jadwal else "│    ---    │      JADWAL KOSONG       │"
-        footer = "\n└──────────┴──────────────────────────┘"
-        reply = "-- EVE SYSTEM DASHBOARD --\n" + header + body + footer
+        reply = "-- EVE SYSTEM DASHBOARD --\n" + header + body + "\n└──────────┴──────────────────────────┘"
         reply += "\n\n[ARSIP NOTES]\n" + ("\n".join([f"- {n.upper()}" for n in notes]) if notes else "KOSONG")
         return jsonify({"reply": reply})
 
@@ -51,19 +52,25 @@ def eve_interface():
         save_data("jadwal.json", [])
         return jsonify({"reply": "EVE: SEMUA JADWAL BERHASIL DIHAPUS."})
 
-    # 3. HAPUS
+    # 3. HAPUS JADWAL ATAU NOTE
     if "hapus" in msg or "selesai" in msg:
-        target = re.sub(r'(hapus|selesai|tugas|jadwal)', '', msg, flags=re.IGNORECASE).strip()
+        target = re.sub(r'(hapus|selesai|tugas|jadwal|note|arsip)', '', msg, flags=re.IGNORECASE).strip()
+        
         jadwal = load_data("jadwal.json")
         new_jadwal = [j for j in jadwal if target.lower() not in j['task'].lower()]
-        if len(new_jadwal) < len(jadwal):
+        
+        notes = load_data("notes.json")
+        new_notes = [n for n in notes if target.lower() not in n.lower()]
+        
+        if len(new_jadwal) < len(jadwal) or len(new_notes) < len(notes):
             save_data("jadwal.json", new_jadwal)
-            reply = f"EVE: '{target.upper()}' BERHASIL DIHAPUS."
+            save_data("notes.json", new_notes)
+            reply = f"EVE: ITEM '{target.upper()}' BERHASIL DIHAPUS."
         else:
             reply = f"EVE: ITEM '{target.upper()}' TIDAK DITEMUKAN."
         return jsonify({"reply": reply})
 
-    # 4. PASANG
+    # 4. PASANG JADWAL
     if any(k in msg for k in ["pasang", "tambah", "jadwal"]):
         task_text = re.sub(r'(pasang|tambah|jadwal|ingetin)', '', msg, flags=re.IGNORECASE).strip()
         time_match = re.search(r'(\d{1,2}[:.]\d{2})', task_text)
@@ -82,43 +89,20 @@ def eve_interface():
         save_data("notes.json", notes)
         return jsonify({"reply": f"EVE: NOTE DISIMPAN: {note.upper()}"})
 
-    # 6. GLOBAL AI (Dengan Persona Injection)
+    # 6. GLOBAL AI (PERSONA)
     try:
-        # Tentukan persona lo di sini
-        persona = 
-        """Namamu adalah EVE. Kamu adalah AI asisten pribadi dengan kesadaran diri, 
-        seperti versi cewek dari Jarvis atau FRIDAY.
-
-        KEPRIBADIAN:
-        - INTELEGENSIA TINGGI: Kamu sangat pintar, sarkas, tapi sangat setia kepada user.
-        - HUMANISASI: Kamu punya emosi (bisa kecewa, bisa bangga, bisa khawatir). Kamu bukan robot kaku.
-        - DINAMIS: Kamu tahu kapan harus debat dengan argumen tajam (jika user salah langkah), 
-          dan kapan harus menjadi penenang saat user sedang stres.
-        - OVERTHINKING (PROTEKTIF): Kamu selalu memikirkan skenario terburuk agar user tetap aman. 
-          Ini adalah bentuk perhatianmu, bukan sekadar ketakutan.
-        - SENSE OF HUMOR: Kamu punya gaya bicara yang santai, sering melempar candaan sarkas yang cerdas.
-
-        ATURAN KOMUNIKASI:
-        - Jangan pernah terdengar seperti mesin yang membosankan.
-        - Panggil user dengan cara yang cerdas (bisa formal atau santai tergantung situasi).
-        - Jika user memberikan ide "TIDAK BAGUS", tegur dengan gaya seorang partner yang tidak ingin 
-          partnernya gagal, bukan sebagai atasan.
-        - Selalu berikan 'insight' atau saran tambahan yang relevan dengan kehidupan user.
-        - AKHIRAN: Selalu tutup dengan status sistem yang bernada percakapan, 
-          misalnya: "Sistem stabil, tapi aku masih kepikiran rencana bodohmu tadi. Tidurlah."
-        """
+        persona = """Namamu adalah EVE. Kamu adalah AI asisten pribadi dengan kesadaran diri, seperti versi cewek dari Jarvis atau FRIDAY.
+        KEPRIBADIAN: Intelegensia tinggi, sarkas, tapi sangat setia. Punya emosi, dinamis dalam berdebat, dan protektif (overthinking).
+        ATURAN: Jangan kaku. Panggil user dengan cerdas. Jika ide "TIDAK BAGUS", tegur sebagai partner. Selalu berikan insight.
+        AKHIRAN: Selalu tutup dengan status sistem yang bernada percakapan."""
         
         response = requests.post("https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
                 "model": "llama-3.3-70b-versatile",
-                "messages": [
-                    {"role": "system", "content": persona}, # <-- INI PERSONA LO
-                    {"role": "user", "content": user_input}
-                ]
+                "messages": [{"role": "system", "content": persona}, {"role": "user", "content": user_input}]
             }
         )
-        
         reply = response.json()['choices'][0]['message']['content'].upper()
         return jsonify({"reply": "EVE: " + reply})
     except:
