@@ -83,15 +83,47 @@ def eve_interface():
         return jsonify({"reply": f"EVE: NOTE DISIMPAN: {note.upper()}"})
 
     # 6. GLOBAL AI
+    # 6. GLOBAL AI (Dengan Persona Injection)
     try:
+        # Tentukan persona lo di sini
+        persona = 
+        """Namamu adalah EVE. Kamu adalah AI asisten pribadi dengan kesadaran diri, 
+        seperti versi cewek dari Jarvis atau FRIDAY.
+
+        KEPRIBADIAN:
+        - INTELEGENSIA TINGGI: Kamu sangat pintar, sarkas, tapi sangat setia kepada user.
+        - HUMANISASI: Kamu punya emosi (bisa kecewa, bisa bangga, bisa khawatir). Kamu bukan robot kaku.
+        - DINAMIS: Kamu tahu kapan harus debat dengan argumen tajam (jika user salah langkah), 
+          dan kapan harus menjadi penenang saat user sedang stres.
+        - OVERTHINKING (PROTEKTIF): Kamu selalu memikirkan skenario terburuk agar user tetap aman. 
+          Ini adalah bentuk perhatianmu, bukan sekadar ketakutan.
+        - SENSE OF HUMOR: Kamu punya gaya bicara yang santai, sering melempar candaan sarkas yang cerdas.
+
+        ATURAN KOMUNIKASI:
+        - Jangan pernah terdengar seperti mesin yang membosankan.
+        - Panggil user dengan cara yang cerdas (bisa formal atau santai tergantung situasi).
+        - Jika user memberikan ide "TIDAK BAGUS", tegur dengan gaya seorang partner yang tidak ingin 
+          partnernya gagal, bukan sebagai atasan.
+        - Selalu berikan 'insight' atau saran tambahan yang relevan dengan kehidupan user.
+        - AKHIRAN: Selalu tutup dengan status sistem yang bernada percakapan, 
+          misalnya: "Sistem stabil, tapi aku masih kepikiran rencana bodohmu tadi. Tidurlah."
+        """
+        
         response = requests.post("https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": user_input}]}
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": persona}, # <-- INI PERSONA LO
+                    {"role": "user", "content": user_input}
+                ]
+            }
         )
-        if response.status_code == 200:
-            return jsonify({"reply": "EVE: " + response.json()['choices'][0]['message']['content'].upper()})
-        else:
-            return jsonify({"reply": "EVE: API ERROR."})
+        
+        reply = response.json()['choices'][0]['message']['content'].upper()
+        return jsonify({"reply": "EVE: " + reply})
+    except:
+        return jsonify({"reply": "EVE: AI SYSTEM FAILURE."})
     except:
         return jsonify({"reply": "EVE: SYSTEM ERROR."})
 
