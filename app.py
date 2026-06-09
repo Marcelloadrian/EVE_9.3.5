@@ -84,7 +84,8 @@ def eve_interface():
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": user_input}]}
         )
-        return jsonify({"reply": + response.json()['choices'][0]['message']['content'].upper()})
+        reply_content = response.json()['choices'][0]['message']['content']
+        return jsonify({"reply": reply_content.upper()})
     except:
         return jsonify({"reply": "AI ERROR."})
 
