@@ -43,7 +43,7 @@ def eve_interface():
     # 2. RESET/BERSIHKAN (Semua)
     if any(k in msg for k in ["reset", "bersihkan", "kosongkan semua"]):
         save_data("jadwal.json", [])
-        return jsonify({"reply": "EVE: SEMUA JADWAL BERHASIL DIHAPUS."})
+        return jsonify({"reply": "SEMUA JADWAL BERHASIL DIHAPUS."})
 
     # 3. HAPUS SATU ITEM (Spesifik)
     if "hapus" in msg or "selesai" in msg:
@@ -53,9 +53,9 @@ def eve_interface():
         
         if len(new_jadwal) < len(jadwal):
             save_data("jadwal.json", new_jadwal)
-            reply = f"EVE: '{target.upper()}' BERHASIL DIHAPUS."
+            reply = f"'{target.upper()}' BERHASIL DIHAPUS."
         else:
-            reply = f"EVE: ITEM '{target.upper()}' TIDAK DITEMUKAN."
+            reply = f"ITEM '{target.upper()}' TIDAK DITEMUKAN."
         return jsonify({"reply": reply})
 
     # 4. PASANG (Auto-Sort Time)
@@ -68,7 +68,7 @@ def eve_interface():
         jadwal.append({"task": task_text, "time": time})
         jadwal = sorted(jadwal, key=lambda x: x['time'])
         save_data("jadwal.json", jadwal)
-        return jsonify({"reply": f"EVE: '{task_text.upper()}' DITAMBAHKAN PADA {time}"})
+        return jsonify({"reply": f"'{task_text.upper()}' DITAMBAHKAN PADA {time}"})
 
     # 5. NOTE
     if "note" in msg or "catat" in msg:
@@ -76,7 +76,7 @@ def eve_interface():
         notes = load_data("notes.json")
         notes.append(note)
         save_data("notes.json", notes)
-        return jsonify({"reply": f"EVE: NOTE DISIMPAN: {note.upper()}"})
+        return jsonify({"reply": f"NOTE DISIMPAN: {note.upper()}"})
 
     # 6. GLOBAL AI
     try:
@@ -84,9 +84,9 @@ def eve_interface():
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": user_input}]}
         )
-        return jsonify({"reply": "EVE: " + response.json()['choices'][0]['message']['content'].upper()})
+        return jsonify({"reply": + response.json()['choices'][0]['message']['content'].upper()})
     except:
-        return jsonify({"reply": "EVE: AI ERROR."})
+        return jsonify({"reply": "AI ERROR."})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
