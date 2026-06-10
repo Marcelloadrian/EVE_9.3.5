@@ -12,7 +12,7 @@ CORS(app)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-PASSWORD = 'rahasia123'
+PASSWORD = os.environ.get("UPLOAD_PASSWORD", "rahasia123")
 
 # Auto-create upload folder on startup — no need for static/uploads in repo
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
