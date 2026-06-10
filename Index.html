@@ -143,6 +143,19 @@
             border-top: 1px solid #030;
             margin-top: 6px;
         }
+        #delete-btn {
+            display: block;
+            width: 100%;
+            background: #000;
+            color: #f00;
+            border: 1px solid #500;
+            padding: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 10px;
+            letter-spacing: 2px;
+            margin-top: 6px;
+        }
 
         /* ── JADWAL / TODO ────────────────────────────── */
         #jadwal-list {
@@ -160,16 +173,14 @@
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #0a0; }
 
-        /* ── STATUS BAR ───────────────────────────────── */
-        #status-bar {
-            clear: both;
-            border-top: 1px solid #030;
-            padding-top: 6px;
-            margin-top: 4px;
-            font-size: 10px;
-            color: #090;
-            letter-spacing: 2px;
+        /* ── NOTES PANEL ──────────────────────────────── */
+        #notes-list {
+            height: 90px;
+            overflow-y: scroll;
+            font-size: 11px;
+            line-height: 1.8;
         }
+        .notes-item { border-bottom: 1px solid #030; padding: 2px 0; color: #0c0; }
     </style>
 </head>
 <body>
@@ -213,13 +224,14 @@ TYPE A COMMAND OR SPEAK FREELY.</div>
                     <button onclick="prevPhoto()">&#9664; PREV</button>
                     <button onclick="nextPhoto()">NEXT &#9654;</button>
                 </div>
+                <button id="delete-btn" onclick="deletePhoto()">[ DELETE PHOTO ]</button>
                 <a href="/upload" id="upload-link">[ + UPLOAD PHOTO ]</a>
             </div>
         </div>
 
-        <!-- JADWAL / TODO -->
+        <!-- JADWAL -->
         <div class="panel">
-            <div class="panel-title">// JADWAL &amp; NOTES</div>
+            <div class="panel-title">// JADWAL</div>
             <div class="panel-body">
                 <div id="jadwal-list">
                     <span class="jadwal-empty">LOADING...</span>
@@ -227,13 +239,17 @@ TYPE A COMMAND OR SPEAK FREELY.</div>
             </div>
         </div>
 
-    </div>
-</div>
+        <!-- NOTES -->
+        <div class="panel">
+            <div class="panel-title">// NOTES</div>
+            <div class="panel-body">
+                <div id="notes-list">
+                    <span class="jadwal-empty">LOADING...</span>
+                </div>
+            </div>
+        </div>
 
-<!-- STATUS BAR -->
-<div id="status-bar">
-    PHOTO REFRESH: <span id="refresh-countdown">30</span>S &nbsp;|&nbsp;
-    STATUS: <span id="conn-status">ONLINE</span>
+    </div>
 </div>
 
 
@@ -288,13 +304,11 @@ function sendMessage() {
                 display.innerText += "\nEVE: SERVER ERROR " + xhr.status;
             }
             display.scrollTop = display.scrollHeight;
-            document.getElementById("conn-status").innerHTML = "ONLINE";
         }
     };
     xhr.onerror = function() {
         display.innerText += "\nEVE: NETWORK ERROR.";
         display.scrollTop = display.scrollHeight;
-        document.getElementById("conn-status").innerHTML = "OFFLINE";
     };
     xhr.send("message=" + encodeURIComponent(msg));
 }
@@ -324,13 +338,14 @@ function loadJadwal() {
 
 function renderJadwalFromReply(reply) {
     var list = document.getElementById("jadwal-list");
-    // Parse lines that look like table rows: │ HH:MM │ TASK │
+    var notesList = document.getElementById("notes-list");
+
+    // ── Parse jadwal rows from ASCII table ──
     var lines = reply.split("\n");
     var items = [];
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
         if (line.indexOf("│") > -1 && line.indexOf(":") > -1) {
-            // Extract time and task from the pipe-separated row
             var parts = line.split("│");
             if (parts.length >= 3) {
                 var time = parts[1].replace(/\s/g, "");
@@ -351,6 +366,27 @@ function renderJadwalFromReply(reply) {
                     items[j].time + '</span>' + items[j].task + '</div>';
         }
         list.innerHTML = html;
+    }
+
+    // ── Parse notes from [ARSIP NOTES] section ──
+    var notesSection = reply.split("[ARSIP NOTES]");
+    var notes = [];
+    if (notesSection.length > 1) {
+        var notesLines = notesSection[1].split("\n");
+        for (var k = 0; k < notesLines.length; k++) {
+            var nl = notesLines[k].replace(/^\s*-\s*/, "").trim();
+            if (nl && nl !== "KOSONG") notes.push(nl);
+        }
+    }
+
+    if (notes.length === 0) {
+        notesList.innerHTML = '<span class="jadwal-empty">NOTES KOSONG</span>';
+    } else {
+        var nhtml = "";
+        for (var n = 0; n < notes.length; n++) {
+            nhtml += '<div class="notes-item">- ' + notes[n] + '</div>';
+        }
+        notesList.innerHTML = nhtml;
     }
 }
 
@@ -407,10 +443,44 @@ function prevPhoto() {
     showPhoto(photoIndex);
 }
 
+function deletePhoto() {
+    if (photoList.length === 0) return;
+    var pwd = prompt("PASSWORD:");
+    if (!pwd) return;
+
+    var url = photoList[photoIndex];
+    var parts = url.split("/");
+    var filename = parts[parts.length - 1];
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/delete-photo", true);
+    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                if (data.success) {
+                    photoList.splice(photoIndex, 1);
+                    if (photoIndex >= photoList.length) photoIndex = 0;
+                    if (photoList.length > 0) {
+                        showPhoto(photoIndex);
+                    } else {
+                        document.getElementById("photo-img").src = "";
+                        document.getElementById("photo-caption").innerHTML = "NO PHOTOS";
+                    }
+                } else {
+                    alert(data.reply);
+                }
+            } catch (e) {}
+        }
+    };
+    xhr.send("password=" + encodeURIComponent(pwd) + "&filename=" + encodeURIComponent(filename));
+}
+
+
+
 // Load photos on start
 loadPhotos();
-
-// Auto-refresh photos every 30 seconds
 var refreshCount = 30;
 setInterval(function() {
     refreshCount -= 1;
@@ -418,7 +488,6 @@ setInterval(function() {
         loadPhotos();
         refreshCount = 30;
     }
-    document.getElementById("refresh-countdown").innerHTML = "" + refreshCount;
 }, 1000);
 </script>
 
