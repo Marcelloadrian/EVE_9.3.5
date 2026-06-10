@@ -102,6 +102,29 @@ def get_photos():
         return jsonify({"photos": [], "error": str(e)})
 
 
+# ── DELETE PHOTO ─────────────────────────────────────────────────────────────
+
+@app.route('/delete-photo', methods=['POST'])
+def delete_photo():
+    pwd = request.form.get('password', '')
+    if pwd != PASSWORD:
+        return jsonify({"success": False, "reply": "EVE: ACCESS DENIED."}), 403
+
+    filename = request.form.get('filename', '')
+    if not filename:
+        return jsonify({"success": False, "reply": "EVE: NO FILENAME PROVIDED."}), 400
+
+    # Security: strip any path traversal attempts
+    filename = os.path.basename(filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+    if not os.path.exists(filepath):
+        return jsonify({"success": False, "reply": "EVE: FILE NOT FOUND."}), 404
+
+    os.remove(filepath)
+    return jsonify({"success": True, "reply": "EVE: '" + filename.upper() + "' DELETED."})
+
+
 # ── EVE CHAT ──────────────────────────────────────────────────────────────────
 
 @app.route('/eve', methods=['POST'])
