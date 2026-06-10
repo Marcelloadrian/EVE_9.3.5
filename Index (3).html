@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE SYSTEM</title>
+    <style>
+        /* ── RESET & BASE ─────────────────────────────── */
+        * { -webkit-box-sizing: border-box; box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            padding: 10px;
+            min-height: 100%;
+        }
+
+        /* ── HEADER ───────────────────────────────────── */
+        #eve-header {
+            border: 1px solid #0f0;
+            padding: 6px 12px;
+            margin-bottom: 10px;
+            letter-spacing: 4px;
+            font-size: 11px;
+            overflow: hidden;
+        }
+        #eve-header .title { float: left; }
+        #eve-header .clock { float: right; }
+        #eve-header:after { content: ""; display: table; clear: both; }
+
+        /* ── MAIN LAYOUT (float-based, iOS 9 safe) ───── */
+        #layout-wrap { overflow: hidden; }
+
+        /* LEFT COLUMN — Chat */
+        #col-left {
+            float: left;
+            width: 48%;
+            margin-right: 2%;
+        }
+
+        /* RIGHT COLUMN — Photo + Jadwal stacked */
+        #col-right {
+            float: left;
+            width: 50%;
+        }
+
+        /* ── PANEL SHARED STYLES ──────────────────────── */
+        .panel {
+            border: 1px solid #0f0;
+            margin-bottom: 10px;
+        }
+        .panel-title {
+            background: #0f0;
+            color: #000;
+            padding: 4px 10px;
+            font-size: 10px;
+            letter-spacing: 3px;
+            font-weight: bold;
+        }
+        .panel-body { padding: 8px; }
+
+        /* ── CHAT ─────────────────────────────────────── */
+        #chat-display {
+            white-space: pre-wrap;
+            height: 320px;
+            overflow-y: scroll;
+            font-size: 12px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .input-area { overflow: hidden; margin-top: 8px; }
+        #user-input {
+            float: left;
+            width: 75%;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 8px;
+            outline: none;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+        }
+        #send-btn {
+            float: left;
+            width: 24%;
+            margin-left: 1%;
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 8px 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+        .input-area:after { content: ""; display: table; clear: both; }
+
+        /* ── PHOTO FRAME ──────────────────────────────── */
+        #photo-frame {
+            height: 200px;
+            overflow: hidden;
+            text-align: center;
+            position: relative;
+            background: #030;
+        }
+        #photo-frame img {
+            max-width: 100%;
+            max-height: 200px;
+            display: block;
+            margin: 0 auto;
+        }
+        #photo-caption {
+            font-size: 10px;
+            color: #090;
+            padding: 4px 0 0 0;
+            letter-spacing: 2px;
+        }
+        #photo-nav { margin-top: 6px; overflow: hidden; }
+        #photo-nav button {
+            float: left;
+            width: 49%;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+        }
+        #photo-nav button + button { float: right; }
+        #photo-nav:after { content: ""; display: table; clear: both; }
+        #upload-link {
+            display: block;
+            text-align: center;
+            color: #0f0;
+            text-decoration: none;
+            font-size: 10px;
+            letter-spacing: 2px;
+            padding: 5px;
+            border-top: 1px solid #030;
+            margin-top: 6px;
+        }
+
+        /* ── JADWAL / TODO ────────────────────────────── */
+        #jadwal-list {
+            height: 180px;
+            overflow-y: scroll;
+            font-size: 11px;
+            line-height: 1.8;
+        }
+        .jadwal-item { border-bottom: 1px solid #030; padding: 2px 0; }
+        .jadwal-item .time { color: #0a0; margin-right: 8px; }
+        .jadwal-empty { color: #050; font-style: italic; }
+
+        /* ── SCROLLBAR (webkit) ───────────────────────── */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #0a0; }
+
+        /* ── STATUS BAR ───────────────────────────────── */
+        #status-bar {
+            clear: both;
+            border-top: 1px solid #030;
+            padding-top: 6px;
+            margin-top: 4px;
+            font-size: 10px;
+            color: #090;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="eve-header">
+    <span class="title">[ EVE SYSTEM v2.0 ]</span>
+    <span class="clock" id="clock">--:--:--</span>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div id="layout-wrap">
+
+    <!-- LEFT: CHAT -->
+    <div id="col-left">
+        <div class="panel">
+            <div class="panel-title">// TERMINAL</div>
+            <div class="panel-body">
+                <div id="chat-display">EVE SYSTEM READY...
+TYPE A COMMAND OR SPEAK FREELY.</div>
+                <div class="input-area">
+                    <input type="text" id="user-input" placeholder="COMMAND...">
+                    <button id="send-btn">EXEC</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: PHOTO + JADWAL -->
+    <div id="col-right">
+
+        <!-- PHOTO FRAME -->
+        <div class="panel">
+            <div class="panel-title">// PHOTO FRAME</div>
+            <div class="panel-body">
+                <div id="photo-frame">
+                    <img id="photo-img" src="" alt="">
+                </div>
+                <div id="photo-caption">NO PHOTOS LOADED</div>
+                <div id="photo-nav">
+                    <button onclick="prevPhoto()">&#9664; PREV</button>
+                    <button onclick="nextPhoto()">NEXT &#9654;</button>
+                </div>
+                <a href="/upload" id="upload-link">[ + UPLOAD PHOTO ]</a>
+            </div>
+        </div>
+
+        <!-- JADWAL / TODO -->
+        <div class="panel">
+            <div class="panel-title">// JADWAL &amp; NOTES</div>
+            <div class="panel-body">
+                <div id="jadwal-list">
+                    <span class="jadwal-empty">LOADING...</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="status-bar">
+    PHOTO REFRESH: <span id="refresh-countdown">30</span>S &nbsp;|&nbsp;
+    STATUS: <span id="conn-status">ONLINE</span>
+</div>
+
+
+<script>
+// ── CLOCK ──────────────────────────────────────────────────────────────────
+function updateClock() {
+    var d = new Date();
+    var h = d.getHours();
+    var m = d.getMinutes();
+    var s = d.getSeconds();
+    h = h < 10 ? "0" + h : "" + h;
+    m = m < 10 ? "0" + m : "" + m;
+    s = s < 10 ? "0" + s : "" + s;
+    document.getElementById("clock").innerHTML = h + ":" + m + ":" + s;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+
+// ── CHAT ───────────────────────────────────────────────────────────────────
+function sendMessage() {
+    var input = document.getElementById("user-input");
+    var display = document.getElementById("chat-display");
+    var msg = input.value;
+    if (!msg) return;
+
+    display.innerText += "\n> " + msg;
+    input.value = "";
+    display.scrollTop = display.scrollHeight;
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/eve", true);
+    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    display.innerText += "\n" + data.reply;
+
+                    // If jadwal command, also refresh jadwal panel
+                    var lower = msg.toLowerCase();
+                    if (lower.indexOf("jadwal") > -1 || lower.indexOf("pasang") > -1 ||
+                        lower.indexOf("hapus") > -1 || lower.indexOf("reset") > -1 ||
+                        lower.indexOf("status") > -1 || lower.indexOf("dashboard") > -1) {
+                        loadJadwal();
+                    }
+                } catch (e) {
+                    display.innerText += "\nEVE: ERROR PARSING DATA.";
+                }
+            } else {
+                display.innerText += "\nEVE: SERVER ERROR " + xhr.status;
+            }
+            display.scrollTop = display.scrollHeight;
+            document.getElementById("conn-status").innerHTML = "ONLINE";
+        }
+    };
+    xhr.onerror = function() {
+        display.innerText += "\nEVE: NETWORK ERROR.";
+        display.scrollTop = display.scrollHeight;
+        document.getElementById("conn-status").innerHTML = "OFFLINE";
+    };
+    xhr.send("message=" + encodeURIComponent(msg));
+}
+
+document.getElementById("user-input").onkeydown = function(e) {
+    var key = e.keyCode || e.which;
+    if (key === 13) sendMessage();
+};
+document.getElementById("send-btn").onclick = sendMessage;
+
+
+// ── JADWAL PANEL ───────────────────────────────────────────────────────────
+function loadJadwal() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/eve", true);
+    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                renderJadwalFromReply(data.reply);
+            } catch (e) {}
+        }
+    };
+    xhr.send("message=dashboard");
+}
+
+function renderJadwalFromReply(reply) {
+    var list = document.getElementById("jadwal-list");
+    // Parse lines that look like table rows: │ HH:MM │ TASK │
+    var lines = reply.split("\n");
+    var items = [];
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (line.indexOf("│") > -1 && line.indexOf(":") > -1) {
+            // Extract time and task from the pipe-separated row
+            var parts = line.split("│");
+            if (parts.length >= 3) {
+                var time = parts[1].replace(/\s/g, "");
+                var task = parts[2].replace(/^\s+|\s+$/g, "");
+                if (time && time !== "JAM" && task && task !== "KEGIATAN") {
+                    items.push({time: time, task: task});
+                }
+            }
+        }
+    }
+
+    if (items.length === 0) {
+        list.innerHTML = '<span class="jadwal-empty">JADWAL KOSONG</span>';
+    } else {
+        var html = "";
+        for (var j = 0; j < items.length; j++) {
+            html += '<div class="jadwal-item"><span class="time">' +
+                    items[j].time + '</span>' + items[j].task + '</div>';
+        }
+        list.innerHTML = html;
+    }
+}
+
+// Load jadwal on page start
+loadJadwal();
+
+
+// ── PHOTO FRAME ────────────────────────────────────────────────────────────
+var photoList = [];
+var photoIndex = 0;
+
+function loadPhotos() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/get-photos", true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                photoList = data.photos || [];
+                if (photoList.length > 0) {
+                    // Keep current index in range
+                    if (photoIndex >= photoList.length) photoIndex = 0;
+                    showPhoto(photoIndex);
+                } else {
+                    document.getElementById("photo-img").src = "";
+                    document.getElementById("photo-img").alt = "";
+                    document.getElementById("photo-caption").innerHTML = "NO PHOTOS";
+                }
+            } catch (e) {}
+        }
+    };
+    xhr.send();
+}
+
+function showPhoto(idx) {
+    if (photoList.length === 0) return;
+    var img = document.getElementById("photo-img");
+    var cap = document.getElementById("photo-caption");
+    img.src = photoList[idx];
+    // Extract filename for caption
+    var parts = photoList[idx].split("/");
+    cap.innerHTML = (idx + 1) + "/" + photoList.length + " — " + parts[parts.length - 1].toUpperCase();
+}
+
+function nextPhoto() {
+    if (photoList.length === 0) return;
+    photoIndex = (photoIndex + 1) % photoList.length;
+    showPhoto(photoIndex);
+}
+
+function prevPhoto() {
+    if (photoList.length === 0) return;
+    photoIndex = (photoIndex - 1 + photoList.length) % photoList.length;
+    showPhoto(photoIndex);
+}
+
+// Load photos on start
+loadPhotos();
+
+// Auto-refresh photos every 30 seconds
+var refreshCount = 30;
+setInterval(function() {
+    refreshCount -= 1;
+    if (refreshCount <= 0) {
+        loadPhotos();
+        refreshCount = 30;
+    }
+    document.getElementById("refresh-countdown").innerHTML = "" + refreshCount;
+}, 1000);
+</script>
+
+</body>
+</html>
