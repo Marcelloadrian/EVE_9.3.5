@@ -138,7 +138,7 @@
             overflow: hidden;
         }
         #photo-frame {
-            height: 58%;
+            height: 72%;
             background: #030;
             text-align: center;
             overflow: hidden;
@@ -165,7 +165,7 @@
         #photo-controls button, #photo-controls a {
             display: block;
             float: left;
-            width: 33.33%;
+            width: 50%;
             background: #000;
             color: #0f0;
             border: none;
@@ -274,11 +274,9 @@ TYPE A COMMAND OR SPEAK FREELY.</div>
                 </div>
                 <div id="photo-caption">NO PHOTOS LOADED</div>
                 <div id="photo-controls">
-                    <button onclick="prevPhoto()">&#9664; PREV</button>
-                    <button onclick="nextPhoto()">NEXT &#9654;</button>
-                    <button class="del-btn" onclick="deletePhoto()">DELETE</button>
+                    <button class="del-btn" onclick="deletePhoto()">[ DELETE ]</button>
+                    <a href="/upload" id="upload-link">[ + UPLOAD ]</a>
                 </div>
-                <a href="/upload" id="upload-link" style="display:block;text-align:center;color:#0f0;text-decoration:none;font-size:9px;letter-spacing:2px;padding:4px;border-top:1px solid #030;">[ + UPLOAD ]</a>
             </div>
         </div>
 
@@ -512,15 +510,18 @@ function deletePhoto() {
 
 loadPhotos();
 
-// Auto-refresh photos every 30s
-var refreshCount = 30;
+// Auto-slideshow every 5 seconds
 setInterval(function() {
-    refreshCount -= 1;
-    if (refreshCount <= 0) {
-        loadPhotos();
-        refreshCount = 30;
+    if (photoList.length > 1) {
+        photoIndex = (photoIndex + 1) % photoList.length;
+        showPhoto(photoIndex);
     }
-}, 1000);
+}, 5000);
+
+// Auto-refresh photo list from server every 30s
+setInterval(function() {
+    loadPhotos();
+}, 30000);
 </script>
 
 </body>
