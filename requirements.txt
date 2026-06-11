@@ -3,3 +3,4 @@ flask-cors
 requests
 gunicorn
 supabase==2.3.4
+httpx==0.24.1
