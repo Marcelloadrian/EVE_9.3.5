@@ -33,7 +33,7 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 MASTER_PASSWORD = os.environ.get("UPLOAD_PASSWORD", "rahasia123")
-MASTER_PIN      = os.environ.get("MASTER_PIN", "0000")
+MASTER_PIN      = os.environ.get("MASTER_PIN", "240603")
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER']      = UPLOAD_FOLDER
