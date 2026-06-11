@@ -9,13 +9,21 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
 # ── Supabase (only for users + chat) ──────────────────────────────────────────
+supa = None
+SUPA_ERROR = ""
 try:
     from supabase import create_client
     SUPA_URL = os.environ.get("SUPABASE_URL", "")
     SUPA_KEY = os.environ.get("SUPABASE_KEY", "")
-    supa = create_client(SUPA_URL, SUPA_KEY) if SUPA_URL and SUPA_KEY else None
-except Exception:
-    supa = None
+    if SUPA_URL and SUPA_KEY:
+        supa = create_client(SUPA_URL, SUPA_KEY)
+        print("SUPABASE: connected to " + SUPA_URL)
+    else:
+        SUPA_ERROR = "SUPABASE_URL or SUPABASE_KEY not set"
+        print("SUPABASE: " + SUPA_ERROR)
+except Exception as e:
+    SUPA_ERROR = str(e)
+    print("SUPABASE ERROR: " + SUPA_ERROR)
 
 app = Flask(__name__)
 CORS(app)
@@ -149,6 +157,16 @@ def sb_dm_post(username, to, text):
 # ══════════════════════════════════════════════════════════════════════════════
 # STATIC PAGES
 # ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/debug-supa')
+def debug_supa():
+    return jsonify({
+        "supa_connected": supa is not None,
+        "supa_error": SUPA_ERROR,
+        "url_set": bool(os.environ.get("SUPABASE_URL")),
+        "key_set": bool(os.environ.get("SUPABASE_KEY")),
+        "url_preview": os.environ.get("SUPABASE_URL","")[:30]
+    })
 
 @app.route('/')
 def home():
