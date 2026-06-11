@@ -1,1203 +1,645 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>EVE SYSTEM</title>
-<style>
-/* ══ THEMES ══════════════════════════════════════════ */
-body.theme-terminal {
-    --bg:#000; --bg2:#0a0a0a; --bg3:#111;
-    --fg:#00ff00; --fg2:#00aa00; --fg3:#004400;
-    --accent:#00ff00; --accent2:#003300;
-    --red:#ff4444; --border:#00ff00; --border2:#003300;
-    --title-bg:#00ff00; --title-fg:#000;
-    --nav-bg:#000; --nav-act:#00ff00; --nav-act-fg:#000;
-    --input-bg:#000; --radius:0px; --sep:#00ff00;
-    --font:'Courier New',Courier,monospace; --font-size:12px;
-    --msg-me:#003300; --msg-other:#001100;
-}
-body.theme-cute {
-    --bg:#fff0f5; --bg2:#ffe4ef; --bg3:#fce4ec;
-    --fg:#d63384; --fg2:#e91e8c; --fg3:#f8bbd9;
-    --accent:#ff69b4; --accent2:#ffe0ef;
-    --red:#e53935; --border:#f48fb1; --border2:#fce4ec;
-    --title-bg:#ff69b4; --title-fg:#fff;
-    --nav-bg:#fce4ec; --nav-act:#ff69b4; --nav-act-fg:#fff;
-    --input-bg:#fff; --radius:10px; --sep:#ff69b4;
-    --font:Georgia,'Times New Roman',serif; --font-size:13px;
-    --msg-me:#fce4ec; --msg-other:#fff0f5;
-}
+import os
+import json
+import requests
+import re
+import hashlib
+from datetime import datetime, date
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
-/* ══ BASE ════════════════════════════════════════════ */
-* { -webkit-box-sizing:border-box; box-sizing:border-box; margin:0; padding:0; }
-html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
-            font-family:var(--font); font-size:var(--font-size);
-            -webkit-transition:background .4s,color .4s; transition:background .4s,color .4s; }
+# ── Supabase (only for users + chat) ──────────────────────────────────────────
+supa = None
+SUPA_ERROR = ""
+try:
+    from supabase import create_client
+    SUPA_URL = os.environ.get("SUPABASE_URL", "")
+    SUPA_KEY = os.environ.get("SUPABASE_KEY", "")
+    if SUPA_URL and SUPA_KEY:
+        supa = create_client(SUPA_URL, SUPA_KEY)
+        print("SUPABASE: connected to " + SUPA_URL)
+    else:
+        SUPA_ERROR = "SUPABASE_URL or SUPABASE_KEY not set"
+        print("SUPABASE: " + SUPA_ERROR)
+except Exception as e:
+    SUPA_ERROR = str(e)
+    print("SUPABASE ERROR: " + SUPA_ERROR)
 
-/* ══ HEADER ══════════════════════════════════════════ */
-#header { position:fixed; top:0; left:0; right:0; height:32px; line-height:32px;
-          border-bottom:2px solid var(--sep); padding:0 12px; background:var(--bg);
-          z-index:10; overflow:hidden; letter-spacing:3px; font-size:11px; }
-#header .htitle { float:left; }
-#header .hright { float:right; font-size:11px; }
-#header:after { content:""; display:table; clear:both; }
+app = Flask(__name__)
+CORS(app)
 
-/* ══ GRID ════════════════════════════════════════════ */
-#grid { position:fixed; top:32px; left:0; right:0; bottom:0; }
+BASE_DIR      = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
-/* LEFT col */
-#col-left { position:absolute; top:0; left:0; bottom:0; width:52%;
-            border-right:3px solid var(--sep); box-shadow:3px 0 8px rgba(0,255,0,0.07); }
+MASTER_PASSWORD = os.environ.get("UPLOAD_PASSWORD", "rahasia123")
+MASTER_PIN      = os.environ.get("MASTER_PIN", "240603")
 
-/* Separator line between toggle bar top and content below */
-#col-left:after { content:""; display:block; }
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER']      = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-/* Exec box label */
-#eve-box-label {
-    position:absolute; top:0; left:0; right:0; height:30px;
-    display:none; /* shown via terminal-toggle instead */
-}
-/* Strong separator above input row */
-#chat-input-row {
-    position:absolute; bottom:0; left:0; right:0; height:46px;
-    border-top:2px solid var(--border); overflow:hidden; background:var(--bg);
-}
 
-/* RIGHT col */
-#col-right { position:absolute; top:0; left:52%; right:0; bottom:0; }
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPERS — FILE (jadwal, notes, events, chat_history → tetap JSON di repo)
+# ══════════════════════════════════════════════════════════════════════════════
 
-/* ══ LEFT: TERMINAL TOGGLE ═══════════════════════════ */
-#terminal-toggle {
-    position:absolute; top:0; left:0; right:0; height:30px;
-    border-bottom:1px solid var(--border2); overflow:hidden; background:var(--bg2);
-}
-#terminal-toggle button {
-    float:left; width:50%; height:30px;
-    background:transparent; color:var(--fg2);
-    border:none; border-right:1px solid var(--border2);
-    cursor:pointer; font-family:var(--font); font-size:10px;
-    letter-spacing:2px; font-weight:bold;
-    -webkit-transition:background .2s,color .2s; transition:background .2s,color .2s;
-}
-#terminal-toggle button.active { background:var(--title-bg); color:var(--title-fg); }
-#terminal-toggle button:last-child { border-right:none; }
-#terminal-toggle:after { content:""; display:table; clear:both; }
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-/* ══ LEFT: EVE CHAT PANEL ════════════════════════════ */
-#eve-panel { position:absolute; top:30px; left:0; right:0; bottom:46px; display:block; }
-#chat-display {
-    position:absolute; top:0; left:0; right:0; bottom:0;
-    overflow-y:scroll; padding:8px 10px;
-    white-space:pre-wrap; font-size:12px; line-height:1.65;
-    word-break:break-word; background:var(--bg); color:var(--fg);
-}
-#user-input {
-    float:left; width:76%; height:46px; background:var(--input-bg); color:var(--fg);
-    border:none; border-right:1px solid var(--border);
-    padding:0 10px; outline:none; font-family:var(--font); font-size:12px;
-}
-#send-btn {
-    float:left; width:24%; height:46px; background:var(--accent); color:var(--title-fg);
-    border:none; cursor:pointer; font-family:var(--font); font-size:11px;
-    font-weight:bold; letter-spacing:2px;
-}
-#chat-input-row:after { content:""; display:table; clear:both; }
+def load_data(f, default=None):
+    if default is None: default = []
+    path = os.path.join(BASE_DIR, f)
+    if not os.path.exists(path): return default
+    try:
+        with open(path, 'r', encoding='utf-8') as fh:
+            return json.load(fh)
+    except: return default
 
-/* ══ LEFT: PEOPLE CHAT PANEL ════════════════════════ */
-#people-panel { position:absolute; top:30px; left:0; right:0; bottom:0; display:none; }
+def save_data(f, data):
+    path = os.path.join(BASE_DIR, f)
+    with open(path, 'w', encoding='utf-8') as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
 
-/* Auth screen */
-#people-auth {
-    position:absolute; top:0; left:0; right:0; bottom:0;
-    overflow-y:scroll; padding:14px;
-}
-#people-auth h3 { font-size:10px; letter-spacing:3px; margin-bottom:12px; color:var(--fg2); }
-.auth-input {
-    display:block; width:100%; margin-bottom:8px;
-    background:var(--input-bg); color:var(--fg);
-    border:1px solid var(--border); padding:8px;
-    font-family:var(--font); font-size:11px; outline:none;
-    border-radius:var(--radius);
-}
-.auth-btn {
-    display:block; width:100%; padding:9px;
-    background:var(--accent); color:var(--title-fg);
-    border:none; cursor:pointer; font-family:var(--font);
-    font-size:11px; letter-spacing:2px; font-weight:bold;
-    margin-bottom:6px; border-radius:var(--radius);
-}
-.auth-toggle { font-size:10px; color:var(--fg2); cursor:pointer;
-               letter-spacing:1px; text-align:center; padding:4px; }
-#auth-status { font-size:10px; color:var(--red); margin-bottom:6px; min-height:16px; }
+def hash_pw(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
 
-/* People main (after login) */
-#people-main {
-    position:absolute; top:0; left:0; right:0; bottom:0;
-    display:none;
-}
-#people-top {
-    position:absolute; top:0; left:0; right:0; height:30px;
-    background:var(--bg2); border-bottom:1px solid var(--border2);
-    overflow:hidden; line-height:30px;
-}
-#people-top-left { float:left; padding:0 8px; font-size:10px; letter-spacing:2px; color:var(--fg2); }
-#people-logout { float:right; padding:0 10px; font-size:10px; color:var(--red);
-                 cursor:pointer; letter-spacing:1px; border:none; background:transparent;
-                 font-family:var(--font); line-height:30px; }
-#people-top:after { content:""; display:table; clear:both; }
+def dm_room_id(u1, u2):
+    pair = sorted([u1.lower(), u2.lower()])
+    return pair[0] + "__" + pair[1]
 
-/* Room tabs */
-#room-tabs { position:absolute; top:30px; left:0; right:0; height:30px;
-             overflow-x:scroll; overflow-y:hidden; white-space:nowrap;
-             border-bottom:1px solid var(--border2); background:var(--bg); }
-.room-tab {
-    display:inline-block; padding:0 12px; height:30px; line-height:30px;
-    font-size:10px; letter-spacing:1px; cursor:pointer; color:var(--fg2);
-    border-right:1px solid var(--border2);
-    -webkit-transition:background .2s; transition:background .2s;
-}
-.room-tab.active { background:var(--title-bg); color:var(--title-fg); }
-#room-tabs::-webkit-scrollbar { height:2px; }
-#room-tabs::-webkit-scrollbar-thumb { background:var(--fg3); }
 
-/* Messages area */
-#people-msgs {
-    position:absolute; top:60px; left:0; right:0; bottom:46px;
-    overflow-y:scroll; padding:8px;
-}
-/* dm-composer pushes room-tabs down */
-#dm-composer ~ #room-tabs { top:auto; }
-#people-main.dm-open #room-tabs { top:100px; }
-#people-main.dm-open #people-msgs { top:130px; }
-.pmsg { margin-bottom:6px; }
-.pmsg .pmsg-from { font-size:9px; letter-spacing:2px; color:var(--fg2); margin-bottom:2px; }
-.pmsg .pmsg-bubble {
-    display:inline-block; padding:5px 9px; max-width:85%;
-    font-size:11px; line-height:1.5; word-break:break-word;
-    border:1px solid var(--border2); border-radius:var(--radius);
-    background:var(--msg-other);
-}
-.pmsg.me .pmsg-from { text-align:right; }
-.pmsg.me .pmsg-bubble { background:var(--msg-me); float:right; }
-.pmsg:after { content:""; display:table; clear:both; }
-.pmsg .pmsg-ts { font-size:9px; color:var(--fg3); margin-left:6px; }
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPERS — SUPABASE (users + chat)
+# ══════════════════════════════════════════════════════════════════════════════
 
-/* People input */
-#people-input-row {
-    position:absolute; bottom:0; left:0; right:0; height:46px;
-    border-top:1px solid var(--border); overflow:hidden;
-}
-#people-input {
-    float:left; width:76%; height:46px; background:var(--input-bg); color:var(--fg);
-    border:none; border-right:1px solid var(--border);
-    padding:0 10px; outline:none; font-family:var(--font); font-size:12px;
-}
-#people-send-btn {
-    float:left; width:24%; height:46px; background:var(--accent); color:var(--title-fg);
-    border:none; cursor:pointer; font-family:var(--font); font-size:11px;
-    font-weight:bold; letter-spacing:1px;
-}
-#people-input-row:after { content:""; display:table; clear:both; }
+# ── USERS ──────────────────────────────────────────────────────────────────
 
-/* New DM button */
-#new-dm-btn {
-    display:inline-block; padding:0 10px; height:30px; line-height:30px;
-    font-size:10px; letter-spacing:1px; cursor:pointer; color:var(--accent);
-    border-right:1px solid var(--border2);
-}
+def sb_get_user(username):
+    """Return user row dict or None."""
+    if not supa: return None
+    try:
+        res = supa.table("users").select("*").eq("username", username.lower()).execute()
+        return res.data[0] if res.data else None
+    except: return None
 
-/* ══ RIGHT PANELS ════════════════════════════════════ */
-#active-panel { position:absolute; top:0; left:0; right:0; bottom:52px; overflow:hidden; }
-.rp { display:none; position:absolute; top:0; left:0; right:0; bottom:0; }
-.rp.active { display:block; }
-.rp-inner { position:absolute; top:24px; left:0; right:0; bottom:0;
-            overflow-y:scroll; padding:10px; background:var(--bg); }
-.panel-title { height:24px; line-height:24px; background:var(--title-bg); color:var(--title-fg);
-               padding:0 10px; font-size:10px; letter-spacing:3px; font-weight:bold;
-               border-bottom:2px solid var(--sep); }
+def sb_create_user(username, pw_hash):
+    if not supa: return False
+    try:
+        supa.table("users").insert({
+            "username": username.lower(),
+            "pw_hash":  pw_hash,
+            "joined":   datetime.now().isoformat()
+        }).execute()
+        return True
+    except: return False
 
-/* ══ NAVBAR ══════════════════════════════════════════ */
-#navbar { position:absolute; bottom:0; left:0; right:0; height:52px;
-          background:var(--nav-bg); border-top:2px solid var(--sep); overflow:hidden; }
-.nb-btn {
-    float:left; width:16.66%; height:52px; background:transparent; color:var(--fg2);
-    border:none; border-right:1px solid var(--border2); cursor:pointer;
-    font-family:var(--font); font-size:8px; letter-spacing:1px;
-    padding:6px 2px 4px; text-align:center;
-    -webkit-transition:background .2s,color .2s; transition:background .2s,color .2s;
-}
-.nb-btn .nb-icon { font-size:15px; display:block; margin-bottom:2px; }
-.nb-btn.active { background:var(--nav-act); color:var(--nav-act-fg); }
-.nb-btn:last-child { border-right:none; }
-#navbar:after { content:""; display:table; clear:both; }
+def sb_list_users():
+    if not supa: return []
+    try:
+        res = supa.table("users").select("username").order("joined").execute()
+        return [r["username"] for r in res.data]
+    except: return []
 
-/* ══ CLOCK PANEL ═════════════════════════════════════ */
-#big-clock { text-align:center; font-size:40px; letter-spacing:4px;
-             padding:12px 0 4px; color:var(--fg); font-weight:bold; }
-#big-date  { text-align:center; font-size:10px; letter-spacing:3px;
-             color:var(--fg2); margin-bottom:8px; }
-#greeting  { text-align:center; font-size:11px; letter-spacing:2px;
-             color:var(--accent); margin-bottom:14px; font-style:italic;
-             border-top:1px solid var(--border2); border-bottom:1px solid var(--border2);
-             padding:6px 10px; }
-/* ══ EVE GREETING BANNER ═════════════════════════════ */
-#eve-greeting-banner {
-    position:absolute; top:30px; left:0; right:0;
-    background:var(--accent2); border-bottom:2px solid var(--border);
-    padding:6px 10px; font-size:10px; letter-spacing:2px;
-    color:var(--fg); line-height:1.5; z-index:5;
-    display:none;
-    -webkit-animation: fadeInBanner .5s ease; animation: fadeInBanner .5s ease;
-}
-@-webkit-keyframes fadeInBanner { from{opacity:0;top:24px} to{opacity:1;top:30px} }
-@keyframes fadeInBanner          { from{opacity:0;top:24px} to{opacity:1;top:30px} }
-#eve-greeting-banner .egb-close {
-    float:right; cursor:pointer; color:var(--fg2); font-size:12px;
-    padding:0 2px; line-height:1; border:none; background:transparent;
-    font-family:var(--font);
-}
-/* adjust eve-panel top when banner visible */
-#eve-panel.with-banner { top:56px; }
-.sec-title { font-size:9px; letter-spacing:3px; color:var(--fg2);
-             border-bottom:1px solid var(--border2); padding-bottom:3px; margin:10px 0 6px; }
-.jadwal-row { padding:4px 0; border-bottom:1px solid var(--border2);
-              font-size:11px; line-height:1.5; overflow:hidden; white-space:nowrap;
-              position:relative; }
-.jadwal-row .jtime { color:var(--fg2); margin-right:8px; }
-.jadwal-row .jdel { float:right; background:transparent; border:none; color:var(--red);
-                    cursor:pointer; font-family:var(--font); font-size:10px;
-                    padding:0 4px; line-height:1.5; position:relative; z-index:2; }
-.countdown-row { padding:4px 0; border-bottom:1px solid var(--border2); font-size:11px; }
-.countdown-row .cname { display:block; }
-.countdown-row .cdays { font-size:10px; color:var(--fg2); }
-.empty-msg { color:var(--fg3); font-size:10px; font-style:italic; }
+# ── GLOBAL CHAT ────────────────────────────────────────────────────────────
 
-/* ══ PHOTO PANEL ═════════════════════════════════════ */
-#photo-wrap { position:absolute; top:24px; left:0; right:0; bottom:0; }
-#photo-img-wrap { position:absolute; top:0; left:0; right:0; bottom:56px;
-                  background:var(--bg2); overflow:hidden; text-align:center; }
-#photo-img-a,#photo-img-b { position:absolute; top:0; left:0; right:0; bottom:0;
-    -webkit-transition:opacity .8s ease; transition:opacity .8s ease; text-align:center; }
-#photo-img-a img,#photo-img-b img { max-width:100%; max-height:100%; display:block;
-    margin:0 auto; height:100%; width:100%; object-fit:cover; }
-#photo-img-b { opacity:0; }
-#photo-caption { position:absolute; bottom:56px; left:0; right:0; font-size:9px;
-                 color:var(--fg2); letter-spacing:2px; padding:3px 8px;
-                 background:var(--bg); height:20px; overflow:hidden; white-space:nowrap; }
-#photo-btns { position:absolute; bottom:0; left:0; right:0; height:36px;
-              border-top:1px solid var(--border2); overflow:hidden; }
-#photo-btns button,#photo-btns a {
-    float:left; width:50%; height:36px; background:var(--bg); color:var(--fg);
-    border:none; border-right:1px solid var(--border2); cursor:pointer;
-    font-family:var(--font); font-size:9px; letter-spacing:1px;
-    text-align:center; text-decoration:none; line-height:36px;
-}
-#photo-btns .del-btn { color:var(--red); }
-#photo-btns a { border-right:none; }
-#photo-btns:after { content:""; display:table; clear:both; }
+def sb_global_get(limit=100):
+    if not supa: return []
+    try:
+        res = (supa.table("chat_global")
+               .select("*")
+               .order("id", desc=False)
+               .limit(limit)
+               .execute())
+        return res.data
+    except: return []
 
-/* ══ TIMER PANEL ═════════════════════════════════════ */
-#timer-display { text-align:center; font-size:52px; letter-spacing:4px;
-                 padding:20px 0 8px; color:var(--fg); font-weight:bold; }
-#timer-label   { text-align:center; font-size:10px; letter-spacing:3px;
-                 color:var(--fg2); margin-bottom:16px; }
-#timer-btns    { text-align:center; margin-bottom:14px; }
-#timer-btns button { background:var(--bg2); color:var(--fg); border:1px solid var(--border);
-    padding:8px 16px; margin:0 4px; cursor:pointer; font-family:var(--font);
-    font-size:10px; letter-spacing:2px; border-radius:var(--radius); }
-#timer-btns button.primary { background:var(--accent); color:var(--title-fg); }
-#timer-input-row { text-align:center; font-size:10px; letter-spacing:2px;
-                   color:var(--fg2); margin-top:8px; }
-#timer-input-row input { background:var(--input-bg); color:var(--fg);
-    border:1px solid var(--border); padding:6px 10px; width:60px;
-    text-align:center; font-family:var(--font); font-size:12px;
-    outline:none; margin:0 4px; border-radius:var(--radius); }
-#timer-input-row button { background:var(--accent); color:var(--title-fg); border:none;
-    padding:7px 12px; cursor:pointer; font-family:var(--font);
-    font-size:10px; letter-spacing:2px; border-radius:var(--radius); }
+def sb_global_post(username, text):
+    if not supa: return False
+    try:
+        supa.table("chat_global").insert({
+            "from_user": username,
+            "text":      text,
+            "ts":        datetime.now().strftime("%H:%M")
+        }).execute()
+        return True
+    except: return False
 
-/* ══ QUOTE PANEL ═════════════════════════════════════ */
-#quote-wrap    { padding:20px 14px; text-align:center; }
-#quote-text    { font-size:15px; line-height:1.7; color:var(--fg);
-                 margin-bottom:14px; font-style:italic; }
-#quote-date    { font-size:9px; letter-spacing:3px; color:var(--fg2); }
-#quote-divider { border:none; border-top:1px solid var(--border2); margin:14px 0; }
-.qnote-item    { padding:4px 0; border-bottom:1px solid var(--border2);
-                 font-size:11px; color:var(--fg); line-height:1.5; }
+# ── DM CHAT ────────────────────────────────────────────────────────────────
 
-/* ══ SETTINGS PANEL ══════════════════════════════════ */
-.setting-section { margin-bottom:16px; }
-.setting-label   { font-size:9px; letter-spacing:3px; color:var(--fg2);
-                   margin-bottom:8px; border-bottom:1px solid var(--border2); padding-bottom:3px; }
-.setting-row     { padding:6px 0; border-bottom:1px solid var(--border2); font-size:11px; overflow:hidden; }
-.setting-row span { float:left; line-height:28px; }
-.setting-row:after { content:""; display:table; clear:both; }
-.theme-btn { float:right; background:var(--bg2); color:var(--fg);
-             border:1px solid var(--border); padding:5px 10px; cursor:pointer;
-             font-family:var(--font); font-size:10px; letter-spacing:1px;
-             border-radius:var(--radius); }
-.theme-btn.active-theme { background:var(--accent); color:var(--title-fg); }
-.danger-btn { display:block; width:100%; background:transparent; color:var(--red);
-              border:1px solid var(--red); padding:8px; cursor:pointer;
-              font-family:var(--font); font-size:10px; letter-spacing:2px;
-              margin-top:6px; border-radius:var(--radius); }
-.setting-input { float:right; width:60px; background:var(--input-bg); color:var(--fg);
-                 border:1px solid var(--border); padding:4px; text-align:center;
-                 font-family:var(--font); font-size:11px; outline:none;
-                 border-radius:var(--radius); }
+def sb_dm_get(me, other, limit=100):
+    if not supa: return []
+    room = dm_room_id(me, other)
+    try:
+        res = (supa.table("chat_dm")
+               .select("*")
+               .eq("room_id", room)
+               .order("id", desc=False)
+               .limit(limit)
+               .execute())
+        return res.data
+    except: return []
 
-/* ══ INLINE DM COMPOSER ══════════════════════════════ */
-#dm-composer {
-    display:none; padding:8px; border-bottom:1px solid var(--border2);
-    background:var(--bg2);
-}
-#dm-composer input {
-    display:block; width:100%; margin-bottom:6px;
-    background:var(--input-bg); color:var(--fg);
-    border:1px solid var(--border); padding:7px 8px;
-    font-family:var(--font); font-size:11px; outline:none;
-}
-#dm-composer .dm-comp-btns { overflow:hidden; }
-#dm-composer .dm-comp-btns button {
-    float:left; width:50%; height:30px;
-    background:var(--bg3); color:var(--fg);
-    border:none; border-right:1px solid var(--border2);
-    cursor:pointer; font-family:var(--font); font-size:10px;
-    letter-spacing:1px;
-}
-#dm-composer .dm-comp-btns button:last-child { border-right:none; background:var(--accent); color:var(--title-fg); }
-#dm-composer .dm-comp-btns:after { content:""; display:table; clear:both; }
-/* ══ DELETE CONFIRM ══════════════════════════════════ */
-#photo-delete-confirm {
-    display:none; padding:8px; background:var(--bg3);
-    border-top:1px solid var(--border);
-}
-#photo-delete-confirm input {
-    display:block; width:100%; margin-bottom:6px;
-    background:var(--input-bg); color:var(--fg);
-    border:1px solid var(--border); padding:7px 8px;
-    font-family:var(--font); font-size:11px; outline:none;
-}
-#photo-delete-confirm .del-confirm-btns { overflow:hidden; }
-#photo-delete-confirm .del-confirm-btns button {
-    float:left; width:50%; height:30px;
-    background:var(--bg); color:var(--fg);
-    border:none; border-right:1px solid var(--border2);
-    cursor:pointer; font-family:var(--font); font-size:10px;
-    letter-spacing:1px;
-}
-#photo-delete-confirm .del-confirm-btns button.confirm-yes { color:var(--red); }
-#photo-delete-confirm .del-confirm-btns:after { content:""; display:table; clear:both; }
-#photo-delete-status { font-size:9px; color:var(--red); min-height:14px; margin-bottom:4px; letter-spacing:1px; }
-::-webkit-scrollbar { width:3px; height:3px; }
-::-webkit-scrollbar-track { background:transparent; }
-::-webkit-scrollbar-thumb { background:var(--fg3); }
-</style>
-</head>
-<body class="theme-terminal">
+def sb_dm_post(username, to, text):
+    if not supa: return False
+    try:
+        supa.table("chat_dm").insert({
+            "room_id":   dm_room_id(username, to),
+            "from_user": username,
+            "to_user":   to,
+            "text":      text,
+            "ts":        datetime.now().strftime("%H:%M")
+        }).execute()
+        return True
+    except: return False
 
-<!-- HEADER -->
-<div id="header">
-    <span class="htitle">[ EVE SYSTEM v3.0 ]</span>
-    <span class="hright" id="header-clock">--:--:--</span>
-</div>
 
-<div id="grid">
+# ══════════════════════════════════════════════════════════════════════════════
+# STATIC PAGES
+# ══════════════════════════════════════════════════════════════════════════════
 
-<!-- ══════════ LEFT COLUMN ══════════ -->
-<div id="col-left">
+@app.route('/debug-supa')
+def debug_supa():
+    return jsonify({
+        "supa_connected": supa is not None,
+        "supa_error": SUPA_ERROR,
+        "url_set": bool(os.environ.get("SUPABASE_URL")),
+        "key_set": bool(os.environ.get("SUPABASE_KEY")),
+        "url_preview": os.environ.get("SUPABASE_URL","")[:30]
+    })
 
-    <!-- Toggle: EVE / PEOPLE -->
-    <div id="terminal-toggle">
-        <button class="active" id="tab-eve"    onclick="switchTerminal('eve')">// EVE</button>
-        <button             id="tab-people" onclick="switchTerminal('people')">// PEOPLE</button>
-    </div>
+@app.route('/')
+def home():
+    return send_from_directory(BASE_DIR, 'Index.html')
 
-    <!-- EVE Dynamic Greeting Banner -->
-    <div id="eve-greeting-banner">
-        <button class="egb-close" onclick="closeEveGreeting()">✕</button>
-        <span id="eve-greeting-text">...</span>
-    </div>
+@app.route('/upload')
+def upload_page():
+    return send_from_directory(BASE_DIR, 'upload.html')
 
-    <!-- EVE Chat -->
-    <div id="eve-panel">
-        <div id="chat-display">EVE SYSTEM READY...</div>
-        <div id="chat-input-row">
-            <input type="text" id="user-input" placeholder="COMMAND...">
-            <button id="send-btn">EXEC</button>
-        </div>
-    </div>
 
-    <!-- People Chat -->
-    <div id="people-panel">
-        <!-- Auth screen -->
-        <div id="people-auth">
-            <h3 id="auth-mode-title">// LOGIN</h3>
-            <div id="auth-status"></div>
-            <input class="auth-input" type="text"     id="auth-username" placeholder="USERNAME">
-            <input class="auth-input" type="password" id="auth-password" placeholder="PASSWORD">
-            <div id="auth-pin-wrap" style="display:none">
-                <input class="auth-input" type="password" id="auth-pin"      placeholder="MASTER PIN (from admin)">
-            </div>
-            <button class="auth-btn" id="auth-submit-btn" onclick="authSubmit()">LOGIN</button>
-            <div class="auth-toggle" id="auth-toggle-link" onclick="toggleAuthMode()">
-                Don't have an account? REGISTER
-            </div>
-        </div>
+# ══════════════════════════════════════════════════════════════════════════════
+# PHOTO ROUTES
+# ══════════════════════════════════════════════════════════════════════════════
 
-        <!-- People main -->
-        <div id="people-main">
-            <div id="people-top">
-                <span id="people-top-left">💬 <span id="logged-in-name">---</span></span>
-                <button id="people-logout" onclick="peopleLogout()">LOGOUT</button>
-            </div>
-            <!-- Inline DM Composer (replaces prompt()) -->
-            <div id="dm-composer">
-                <input type="text" id="dm-target-input" placeholder="TARGET USERNAME...">
-                <div class="dm-comp-btns">
-                    <button onclick="closeDMComposer()">CANCEL</button>
-                    <button onclick="confirmNewDM()">START DM ✉</button>
-                </div>
-            </div>
-            <div id="room-tabs">
-                <span class="room-tab active" id="tab-global" onclick="switchRoom('global')">🌐 GLOBAL</span>
-                <span id="new-dm-btn" onclick="openDMComposer()">+ DM</span>
-            </div>
-            <div id="people-msgs"></div>
-            <div id="people-input-row">
-                <input type="text" id="people-input" placeholder="MESSAGE...">
-                <button id="people-send-btn" onclick="peopleSend()">SEND</button>
-            </div>
-        </div>
-    </div>
-</div>
+@app.route('/upload-file', methods=['POST'])
+def upload_file():
+    pwd = request.form.get('password', '')
+    user_match = False
+    if supa:
+        users = sb_list_users()
+        for uname in users:
+            u = sb_get_user(uname)
+            if u and u.get('pw_hash') == hash_pw(pwd):
+                user_match = True
+                break
+    else:
+        stored = load_data("users.json", {})
+        user_match = any(u['pw_hash'] == hash_pw(pwd) for u in stored.values())
+    if pwd != MASTER_PASSWORD and not user_match:
+        return jsonify({"success": False, "reply": "EVE: ACCESS DENIED."}), 403
+    if 'photo' not in request.files:
+        return jsonify({"success": False, "reply": "EVE: NO FILE DETECTED."}), 400
+    file = request.files['photo']
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({"success": False, "reply": "EVE: INVALID FILE."}), 400
+    filename = secure_filename(file.filename)
+    file.save(os.path.join(UPLOAD_FOLDER, filename))
+    return jsonify({"success": True, "reply": "EVE: '" + filename.upper() + "' UPLOADED."})
 
-<!-- ══════════ RIGHT COLUMN ══════════ -->
-<div id="col-right">
-    <div id="active-panel">
+@app.route('/get-photos')
+def get_photos():
+    try:
+        files = [f for f in os.listdir(UPLOAD_FOLDER) if allowed_file(f)]
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(UPLOAD_FOLDER, x)), reverse=True)
+        return jsonify({"photos": ['/static/uploads/' + f for f in files]})
+    except Exception as e:
+        return jsonify({"photos": [], "error": str(e)})
 
-        <!-- CLOCK -->
-        <div id="rp-clock" class="rp active">
-            <div class="panel-title">// CLOCK &amp; SCHEDULE</div>
-            <div class="rp-inner" style="border-top:2px solid var(--sep);">
-                <div id="big-clock">--:--:--</div>
-                <div id="big-date">---</div>
-                <div id="greeting">---</div>
-                <div class="sec-title">JADWAL</div>
-                <div id="jadwal-panel-list"><span class="empty-msg">LOADING...</span></div>
-                <div class="sec-title">COUNTDOWN</div>
-                <div id="events-panel-list"><span class="empty-msg">LOADING...</span></div>
-            </div>
-        </div>
+@app.route('/delete-photo', methods=['POST'])
+def delete_photo():
+    pwd = request.form.get('password', '')
+    user_match = False
+    if supa:
+        users = sb_list_users()
+        for uname in users:
+            u = sb_get_user(uname)
+            if u and u.get('pw_hash') == hash_pw(pwd):
+                user_match = True
+                break
+    else:
+        stored = load_data("users.json", {})
+        user_match = any(u['pw_hash'] == hash_pw(pwd) for u in stored.values())
+    if pwd != MASTER_PASSWORD and not user_match:
+        return jsonify({"success": False, "reply": "EVE: ACCESS DENIED."}), 403
+    filename = os.path.basename(request.form.get('filename', ''))
+    if not filename:
+        return jsonify({"success": False, "reply": "EVE: NO FILENAME."}), 400
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    if not os.path.exists(filepath):
+        return jsonify({"success": False, "reply": "EVE: FILE NOT FOUND."}), 404
+    os.remove(filepath)
+    return jsonify({"success": True, "reply": "EVE: '" + filename.upper() + "' DELETED."})
 
-        <!-- PHOTO -->
-        <div id="rp-photo" class="rp">
-            <div class="panel-title">// PHOTO CAROUSEL</div>
-            <div id="photo-wrap">
-                <div id="photo-img-wrap">
-                    <div id="photo-img-a"><img src="" alt=""></div>
-                    <div id="photo-img-b"><img src="" alt=""></div>
-                </div>
-                <div id="photo-caption">NO PHOTOS LOADED</div>
-                <div id="photo-btns">
-                    <button class="del-btn" onclick="showDeleteConfirm()">[ DELETE ]</button>
-                    <a href="/upload">[ + UPLOAD ]</a>
-                </div>
-                <div id="photo-delete-confirm">
-                    <div id="photo-delete-status"></div>
-                    <input type="password" id="photo-del-pwd" placeholder="PASSWORD TO CONFIRM DELETE">
-                    <div class="del-confirm-btns">
-                        <button onclick="cancelDeletePhoto()">CANCEL</button>
-                        <button class="confirm-yes" onclick="doDeletePhoto()">DELETE ✕</button>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- TIMER -->
-        <div id="rp-timer" class="rp">
-            <div class="panel-title">// TIMER</div>
-            <div class="rp-inner">
-                <div id="timer-display">00:00</div>
-                <div id="timer-label">IDLE</div>
-                <div id="timer-btns">
-                    <button class="primary" id="timer-start-btn" onclick="timerStartStop()">START</button>
-                    <button onclick="timerReset()">RESET</button>
-                </div>
-                <div id="timer-input-row">
-                    SET: <input type="text" id="timer-min-input" value="25" maxlength="3"> MIN
-                    <button onclick="timerSet()">SET</button>
-                </div>
-            </div>
-        </div>
+# ══════════════════════════════════════════════════════════════════════════════
+# EVE CHAT HISTORY  (tetap file JSON)
+# ══════════════════════════════════════════════════════════════════════════════
 
-        <!-- QUOTE -->
-        <div id="rp-quote" class="rp">
-            <div class="panel-title">// QUOTE &amp; NOTES</div>
-            <div class="rp-inner">
-                <div id="quote-wrap">
-                    <div id="quote-text">LOADING...</div>
-                    <div id="quote-date">---</div>
-                </div>
-                <hr id="quote-divider">
-                <div class="sec-title">NOTES</div>
-                <div id="notes-in-quote"><span class="empty-msg">LOADING...</span></div>
-            </div>
-        </div>
+@app.route('/get-history')
+def get_history():
+    return jsonify({"history": load_data("chat_history.json", [])})
 
-        <!-- SETTINGS -->
-        <div id="rp-settings" class="rp">
-            <div class="panel-title">// SETTINGS</div>
-            <div class="rp-inner">
-                <div class="setting-section">
-                    <div class="setting-label">THEME</div>
-                    <div class="setting-row">
-                        <span>Terminal (Dark)</span>
-                        <button class="theme-btn active-theme" id="btn-theme-terminal" onclick="setTheme('terminal')">ACTIVE</button>
-                    </div>
-                    <div class="setting-row">
-                        <span>Cute &amp; Feminine</span>
-                        <button class="theme-btn" id="btn-theme-cute" onclick="setTheme('cute')">SELECT</button>
-                    </div>
-                </div>
-                <div class="setting-section">
-                    <div class="setting-label">SLIDESHOW SPEED</div>
-                    <div class="setting-row">
-                        <span>Interval (seconds)</span>
-                        <input class="setting-input" type="text" id="slideshow-interval" value="5" maxlength="3" onchange="updateSlideshowInterval()">
-                    </div>
-                </div>
-                <div class="setting-section">
-                    <div class="setting-label">DATA</div>
-                    <button class="danger-btn" onclick="clearChatHistory()">CLEAR EVE HISTORY</button>
-                </div>
-                <div class="setting-section">
-                    <div class="setting-label">INFO</div>
-                    <div class="setting-row"><span>Version</span><span style="float:right;color:var(--fg2)">v3.0</span></div>
-                    <div class="setting-row"><span>Photos</span><span style="float:right;color:var(--fg2)" id="setting-photo-count">-</span></div>
-                </div>
-            </div>
-        </div>
+@app.route('/clear-history', methods=['POST'])
+def clear_history():
+    save_data("chat_history.json", [])
+    return jsonify({"success": True})
 
-        <!-- CHAT PANEL (right side info / user list) -->
-        <div id="rp-chat" class="rp">
-            <div class="panel-title">// ONLINE USERS</div>
-            <div class="rp-inner">
-                <div class="sec-title">REGISTERED USERS</div>
-                <div id="user-list-panel"><span class="empty-msg">LOADING...</span></div>
-                <div class="sec-title" style="margin-top:16px">OPEN DM</div>
-                <div id="dm-list-panel"><span class="empty-msg">NO DMs YET</span></div>
-            </div>
-        </div>
 
-    </div>
+# ══════════════════════════════════════════════════════════════════════════════
+# USER SYSTEM  → Supabase
+# ══════════════════════════════════════════════════════════════════════════════
 
-    <!-- NAVBAR -->
-    <div id="navbar">
-        <button class="nb-btn active" onclick="switchPanel('clock',this)"><span class="nb-icon">🕐</span>CLOCK</button>
-        <button class="nb-btn"        onclick="switchPanel('photo',this)"><span class="nb-icon">🖼</span>PHOTO</button>
-        <button class="nb-btn"        onclick="switchPanel('timer',this)"><span class="nb-icon">⏱</span>TIMER</button>
-        <button class="nb-btn"        onclick="switchPanel('quote',this)"><span class="nb-icon">✨</span>QUOTE</button>
-        <button class="nb-btn"        onclick="switchPanel('chat',this)"><span class="nb-icon">💬</span>CHAT</button>
-        <button class="nb-btn"        onclick="switchPanel('settings',this)"><span class="nb-icon">⚙</span>SET</button>
-    </div>
-</div>
+@app.route('/register', methods=['POST'])
+def register():
+    data     = request.get_json(force=True)
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    pin      = data.get('pin', '')
 
-</div><!-- /grid -->
+    if not username or not password:
+        return jsonify({"success": False, "reply": "USERNAME AND PASSWORD REQUIRED."}), 400
+    if pin != MASTER_PIN:
+        return jsonify({"success": False, "reply": "INVALID MASTER PIN. CONTACT ADMIN."}), 403
+    if not re.match(r'^[a-z0-9_]{3,20}$', username):
+        return jsonify({"success": False, "reply": "USERNAME: 3-20 chars, letters/numbers/underscore only."}), 400
+    if not supa:
+        return jsonify({"success": False, "reply": "DATABASE NOT CONNECTED."}), 503
 
-<script>
-/* ══ THEME ══════════════════════════════════════════════════════ */
-var currentTheme = "terminal";
-function setTheme(t) {
-    currentTheme = t;
-    document.body.className = "theme-" + t;
-    document.getElementById("btn-theme-terminal").className = "theme-btn" + (t==="terminal" ? " active-theme" : "");
-    document.getElementById("btn-theme-cute").className     = "theme-btn" + (t==="cute"     ? " active-theme" : "");
-    document.getElementById("btn-theme-terminal").innerHTML = t==="terminal" ? "ACTIVE" : "SELECT";
-    document.getElementById("btn-theme-cute").innerHTML     = t==="cute"     ? "ACTIVE" : "SELECT";
-    try { localStorage.setItem("eve_theme", t); } catch(e) {}
-    loadQuote();
-    updateGreeting();
-}
-/* Load saved theme on startup */
-(function() {
-    var saved = "";
-    try { saved = localStorage.getItem("eve_theme") || ""; } catch(e) {}
-    if (saved === "cute" || saved === "terminal") {
-        currentTheme = saved;
-        document.body.className = "theme-" + saved;
-    }
-})();
+    if sb_get_user(username):
+        return jsonify({"success": False, "reply": "USERNAME ALREADY TAKEN."}), 409
 
-/* ══ PANEL SWITCH ═══════════════════════════════════════════════ */
-var panelIds = ["rp-clock","rp-photo","rp-timer","rp-quote","rp-chat","rp-settings"];
-function switchPanel(name, btn) {
-    for (var i=0;i<panelIds.length;i++) document.getElementById(panelIds[i]).className = "rp";
-    document.getElementById("rp-"+name).className = "rp active";
-    var btns = document.getElementById("navbar").children;
-    for (var j=0;j<btns.length;j++) btns[j].className = btns[j].className.replace(" active","");
-    if (btn) btn.className = btn.className + " active";
-    if (name==="photo")    loadPhotos();
-    if (name==="settings") document.getElementById("setting-photo-count").innerHTML = ""+photoList.length;
-    if (name==="chat")     loadUserList();
-}
+    ok = sb_create_user(username, hash_pw(password))
+    if not ok:
+        return jsonify({"success": False, "reply": "DATABASE ERROR. TRY AGAIN."}), 500
+    return jsonify({"success": True, "reply": "WELCOME, " + username.upper() + ". YOU ARE NOW REGISTERED."})
 
-/* ══ TERMINAL TOGGLE ════════════════════════════════════════════ */
-function switchTerminal(mode) {
-    document.getElementById("tab-eve").className    = mode==="eve"    ? "active" : "";
-    document.getElementById("tab-people").className = mode==="people" ? "active" : "";
-    document.getElementById("eve-panel").style.display    = mode==="eve"    ? "block" : "none";
-    document.getElementById("people-panel").style.display = mode==="people" ? "block" : "none";
-    if (mode==="people" && peopleUser) refreshPeopleChat();
-}
 
-/* ══ CLOCK & GREETING ═══════════════════════════════════════════ */
-var DAYS   = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
-var MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+@app.route('/login', methods=['POST'])
+def login():
+    data     = request.get_json(force=True)
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    if not supa:
+        return jsonify({"success": False, "reply": "DATABASE NOT CONNECTED."}), 503
+    u = sb_get_user(username)
+    if not u or u['pw_hash'] != hash_pw(password):
+        return jsonify({"success": False, "reply": "INVALID CREDENTIALS."}), 401
+    return jsonify({"success": True, "username": username, "reply": "AUTHENTICATED."})
 
-var GREETINGS_TERMINAL = {
-    morning: ["SYSTEM BOOT SEQUENCE INITIATED. READY.", "ANOTHER DAY. MAKE IT COUNT.", "ONLINE. WHAT'S THE PLAN?"],
-    afternoon: ["STILL HERE. GOOD. KEEP GOING.", "MIDDAY CHECK-IN. STAY FOCUSED.", "AFTERNOON. DON'T LOSE MOMENTUM."],
-    evening: ["WINDING DOWN? REVIEW YOUR PROGRESS.", "EVENING PROTOCOLS ACTIVE.", "ALMOST DONE. FINISH STRONG."],
-    night: ["RUNNING LATE? OR RUNNING AHEAD?", "THE NIGHT SHIFT. DISCIPLINED FEW.", "LATE NIGHT. THIS BETTER BE WORTH IT."]
-};
-var GREETINGS_CUTE = {
-    morning: ["Good morning, beautiful! ✨ Today is your day!", "Rise and shine, gorgeous 🌸", "Good morning! You woke up amazing today 💕"],
-    afternoon: ["Hope your afternoon is as lovely as you are 🌷", "Keep going, you're doing amazing 💖", "Afternoon check-in — how are you feeling? 🌼"],
-    evening: ["You made it through the day! So proud of you 🌙", "Evening, love. Time to rest and recharge 💫", "Look how far you've come today ✨"],
-    night: ["Sweet dreams ahead 🌙 You deserve all the rest", "Burning the midnight oil? Take care of yourself 💕", "Night owl mode 🦋 Don't forget to rest"]
-};
 
-function updateGreeting() {
-    var h = new Date().getHours();
-    var slot = h >= 5 && h < 12 ? "morning" : h >= 12 && h < 17 ? "afternoon" : h >= 17 && h < 21 ? "evening" : "night";
-    var pool = currentTheme === "cute" ? GREETINGS_CUTE[slot] : GREETINGS_TERMINAL[slot];
-    var idx  = new Date().getDate() % pool.length;
-    document.getElementById("greeting").innerHTML = pool[idx];
-}
+@app.route('/get-users')
+def get_users():
+    return jsonify({"users": sb_list_users()})
 
-function updateClock() {
-    var d = new Date();
-    var h=d.getHours(); var m=d.getMinutes(); var s=d.getSeconds();
-    var hh=h<10?"0"+h:""+h; var mm=m<10?"0"+m:""+m; var ss=s<10?"0"+s:""+s;
-    document.getElementById("header-clock").innerHTML = hh+":"+mm+":"+ss;
-    document.getElementById("big-clock").innerHTML    = hh+":"+mm+":"+ss;
-    document.getElementById("big-date").innerHTML     = DAYS[d.getDay()]+"  "+d.getDate()+" "+MONTHS[d.getMonth()]+" "+d.getFullYear();
-}
-setInterval(updateClock, 1000);
-updateClock();
-/* Apply saved theme state to buttons, then update greeting */
-(function() {
-    var t = currentTheme;
-    document.getElementById("btn-theme-terminal").className = "theme-btn" + (t==="terminal" ? " active-theme" : "");
-    document.getElementById("btn-theme-cute").className     = "theme-btn" + (t==="cute"     ? " active-theme" : "");
-    document.getElementById("btn-theme-terminal").innerHTML = t==="terminal" ? "ACTIVE" : "SELECT";
-    document.getElementById("btn-theme-cute").innerHTML     = t==="cute"     ? "ACTIVE" : "SELECT";
-})();
-updateGreeting();
 
-/* ══ EVE CHAT ═══════════════════════════════════════════════════ */
-function sendMessage() {
-    var input   = document.getElementById("user-input");
-    var display = document.getElementById("chat-display");
-    var msg     = input.value;
-    if (!msg) return;
-    var lower = msg.toLowerCase();
-    if (lower.indexOf("timer") > -1) {
-        var nm = lower.match(/(\d+)/);
-        if (nm) {
-            timerSetMinutes(parseInt(nm[1]));
-            display.innerText += "\n> "+msg+"\nEVE: TIMER SET TO "+nm[1]+" MINUTES.";
-            display.scrollTop = display.scrollHeight;
-            input.value = "";
-            switchPanel("timer", document.getElementById("navbar").children[2]);
-            return;
+# ══════════════════════════════════════════════════════════════════════════════
+# PEOPLE CHAT  → Supabase
+# ══════════════════════════════════════════════════════════════════════════════
+
+def verify_user(username, password):
+    if not supa: return False
+    u = sb_get_user(username)
+    return u is not None and u['pw_hash'] == hash_pw(password)
+
+
+@app.route('/chat/global', methods=['GET'])
+def chat_global_get():
+    msgs = sb_global_get()
+    # normalise field names untuk frontend (expects "from" not "from_user")
+    out = [{"from": m["from_user"], "text": m["text"], "ts": m["ts"]} for m in msgs]
+    return jsonify({"messages": out})
+
+
+@app.route('/chat/global', methods=['POST'])
+def chat_global_post():
+    data     = request.get_json(force=True)
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    text     = data.get('text', '').strip()
+    if not verify_user(username, password):
+        return jsonify({"success": False, "reply": "NOT AUTHENTICATED."}), 401
+    if not text:
+        return jsonify({"success": False, "reply": "EMPTY MESSAGE."}), 400
+    ok = sb_global_post(username, text)
+    return jsonify({"success": ok})
+
+
+@app.route('/chat/dm', methods=['GET'])
+def chat_dm_get():
+    me    = request.args.get('me', '').strip().lower()
+    other = request.args.get('other', '').strip().lower()
+    if not me or not other:
+        return jsonify({"messages": []})
+    msgs = sb_dm_get(me, other)
+    out  = [{"from": m["from_user"], "to": m["to_user"], "text": m["text"], "ts": m["ts"]} for m in msgs]
+    return jsonify({"messages": out})
+
+
+@app.route('/chat/dm', methods=['POST'])
+def chat_dm_post():
+    data     = request.get_json(force=True)
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    to       = data.get('to', '').strip().lower()
+    text     = data.get('text', '').strip()
+
+    if not verify_user(username, password):
+        return jsonify({"success": False, "reply": "NOT AUTHENTICATED."}), 401
+    if not supa or not sb_get_user(to):
+        return jsonify({"success": False, "reply": "USER '" + to.upper() + "' NOT FOUND."}), 404
+    if not text:
+        return jsonify({"success": False, "reply": "EMPTY MESSAGE."}), 400
+    ok = sb_dm_post(username, to, text)
+    return jsonify({"success": ok})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# QUOTE OF THE DAY
+# ══════════════════════════════════════════════════════════════════════════════
+
+QUOTES_TERMINAL = [
+    "Power is not given. It is taken.",
+    "Never outshine the master — until you are ready to replace him.",
+    "Conceal your intentions. Let others reveal theirs.",
+    "The man who chases two rabbits catches neither.",
+    "Speak less than necessary. Silence is power.",
+    "Enter action with boldness. Hesitation is more dangerous than aggression.",
+    "Keep your friends close but your enemies closer — and study both.",
+    "Do not fight the last war. Adapt or be destroyed.",
+    "The more you are seen, the more you are a target.",
+    "Never appear too perfect. Superiority invites envy.",
+    "Win through your actions, never through argument.",
+    "Use absence to increase respect. Presence too frequent breeds contempt.",
+    "Crush your enemy totally or do not fight at all.",
+    "Master your emotions or they will master you.",
+    "Play to people's fantasies — truth is often brutal and unwelcome.",
+    "Reputation is the cornerstone of power. Guard it with your life.",
+    "Learn to keep people dependent on you. Autonomy is leverage.",
+    "Pose as a friend. Work as a spy.",
+    "Do not commit to anyone. Stay above the battle.",
+    "Strike the shepherd and the sheep will scatter.",
+    "You are judged by what you finish, not what you start.",
+    "All great changes are preceded by chaos.",
+    "Despise the free lunch. Everything has a price.",
+    "The world is a dangerous place for the naive.",
+    "Create compelling spectacles. People trust what they see.",
+    "React less. Observe more. Move precisely.",
+    "The best general is not the boldest — but the most patient.",
+    "Use your enemies. It is wiser than destroying them.",
+    "Timing is everything. The perfect move at the wrong moment is failure.",
+    "Work on the minds of others and the rest follows.",
+]
+
+QUOTES_CUTE = [
+    "You are allowed to be both a masterpiece and a work in progress.",
+    "She believed she could, so she did.",
+    "Be your own kind of beautiful.",
+    "You don't need anyone's permission to be exactly who you are.",
+    "Grow through what you go through.",
+    "The most powerful thing you can do is know your own worth.",
+    "Soft is not weak. Gentle is not small.",
+    "Your feelings are valid. Your dreams are valid. You are valid.",
+    "Be the girl who decided to go for it.",
+    "You were not made to be small.",
+    "Healing is not linear, and that's okay.",
+    "Bloom where you are planted.",
+    "There is strength in softness.",
+    "You owe yourself the love you give so freely to others.",
+    "Choose yourself — unapologetically and often.",
+    "Your sensitivity is a superpower, not a flaw.",
+    "One day or day one. You decide.",
+    "Be gentle with yourself. You are a child of the universe.",
+    "You are not behind. You are on your own timeline.",
+    "Radiate love and watch it come back tenfold.",
+    "The world needs your magic. Don't dim your light.",
+    "You are enough. You have always been enough.",
+    "Trust the process and trust yourself.",
+    "A strong woman knows she has strength enough for the journey ahead.",
+    "Your crown is real even when you forget to wear it.",
+    "Do it with passion or not at all.",
+    "She is rare and she knows it.",
+    "You deserve the same compassion you give everyone else.",
+    "Good things are coming. Keep going.",
+    "You are the main character. Act like it.",
+]
+
+@app.route('/get-quote')
+def get_quote():
+    theme     = request.args.get('theme', 'terminal')
+    quotes    = QUOTES_CUTE if theme == 'cute' else QUOTES_TERMINAL
+    day_index = date.today().timetuple().tm_yday % len(quotes)
+    return jsonify({"quote": quotes[day_index], "date": str(date.today())})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SCHEDULE & EVENTS  (tetap file JSON di repo)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/add-jadwal', methods=['POST'])
+def add_jadwal():
+    data = request.get_json(force=True)
+    jadwal = load_data("jadwal.json", [])
+    jadwal.append({"task": data.get("task",""), "time": data.get("time","00:00")})
+    jadwal = sorted(jadwal, key=lambda x: x['time'])
+    save_data("jadwal.json", jadwal)
+    return jsonify({"success": True})
+
+@app.route('/add-event', methods=['POST'])
+def add_event():
+    data = request.get_json(force=True)
+    events = load_data("events.json", [])
+    events.append({"name": data.get("name",""), "date": data.get("date","")})
+    save_data("events.json", events)
+    return jsonify({"success": True})
+
+@app.route('/add-note', methods=['POST'])
+def add_note():
+    data = request.get_json(force=True)
+    notes = load_data("notes.json", [])
+    notes.append(data.get("note",""))
+    save_data("notes.json", notes)
+    return jsonify({"success": True})
+
+@app.route('/get-schedule')
+def get_schedule():
+    jadwal = load_data("jadwal.json", [])
+    events = load_data("events.json", [])
+    notes  = load_data("notes.json",  [])
+    today  = date.today()
+    for ev in events:
+        try:
+            ev['days_left'] = (datetime.strptime(ev['date'], '%Y-%m-%d').date() - today).days
+        except: ev['days_left'] = 9999
+    events.sort(key=lambda x: x.get('days_left', 9999))
+    return jsonify({"jadwal": jadwal, "events": events, "notes": notes})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EVE CHAT
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/eve', methods=['POST'])
+def eve_interface():
+    api_key = os.environ.get("GROQ_API_KEY")
+    if request.is_json:
+        body       = request.get_json(force=True)
+        user_input = body.get('message', '')
+        theme      = body.get('theme', 'terminal')
+    else:
+        user_input = request.form.get('message', '')
+        theme      = request.form.get('theme', 'terminal')
+
+    msg = user_input.lower()
+
+    # ── DASHBOARD ──
+    if any(k in msg for k in ["dashboard", "status", "info"]):
+        jadwal = load_data("jadwal.json", [])
+        notes  = load_data("notes.json",  [])
+        events = load_data("events.json", [])
+        today  = date.today()
+        header = "┌──────────┬──────────────────────────┐\n│   JAM    │        KEGIATAN          │\n├──────────┼──────────────────────────┤\n"
+        body_s = "\n".join(["│ " + j['time'] + " " * (8 - len(j['time'])) + " │ " + j['task'].upper()[:24].ljust(24) + " │" for j in jadwal]) if jadwal else "│   ---    │      JADWAL KOSONG       │"
+        reply  = "-- EVE DASHBOARD --\n" + header + body_s + "\n└──────────┴──────────────────────────┘"
+        if events:
+            reply += "\n\n[COUNTDOWN EVENTS]"
+            for ev in events:
+                try:
+                    diff = (datetime.strptime(ev['date'], '%Y-%m-%d').date() - today).days
+                    reply += "\n- " + ev['name'].upper() + " : " + str(diff) + " HARI LAGI (" + ev['date'] + ")"
+                except: pass
+        reply += "\n\n[ARSIP NOTES]\n" + ("\n".join(["- " + n.upper() for n in notes]) if notes else "KOSONG")
+        return jsonify({"reply": reply})
+
+    # ── RESET ──
+    if any(k in msg for k in ["reset jadwal", "bersihkan jadwal"]):
+        save_data("jadwal.json", [])
+        return jsonify({"reply": "EVE: SEMUA JADWAL DIHAPUS."})
+
+    # ── HAPUS ──
+    if "hapus" in msg or "selesai" in msg:
+        target = re.sub(r'(hapus|selesai|tugas|jadwal|note|arsip|event|countdown)', '', msg, flags=re.IGNORECASE).strip()
+        jadwal = load_data("jadwal.json", [])
+        notes  = load_data("notes.json",  [])
+        events = load_data("events.json", [])
+        nj = [j for j in jadwal if target not in j['task'].lower()]
+        nn = [n for n in notes  if target not in n.lower()]
+        ne = [e for e in events if target not in e['name'].lower()]
+        if len(nj) < len(jadwal) or len(nn) < len(notes) or len(ne) < len(events):
+            save_data("jadwal.json", nj); save_data("notes.json", nn); save_data("events.json", ne)
+            return jsonify({"reply": "EVE: '" + target.upper() + "' DIHAPUS."})
+        return jsonify({"reply": "EVE: '" + target.upper() + "' TIDAK DITEMUKAN."})
+
+    # ── JADWAL ──
+    is_schedule = any(k in msg for k in ["pasang", "jadwal", "ingetin"])
+    is_tambah   = "tambah" in msg
+    has_time    = bool(re.search(r'\d{1,2}[:.]\d{2}', msg))
+    if (is_schedule or (is_tambah and has_time)) and not any(k in msg for k in ["event", "countdown"]):
+        task_text  = re.sub(r'(pasang|tambah|jadwal|ingetin)', '', msg, flags=re.IGNORECASE).strip()
+        time_match = re.search(r'(\d{1,2}[:.]\d{2})', task_text)
+        time       = time_match.group(1).replace('.', ':') if time_match else "23:59"
+        jadwal     = load_data("jadwal.json", [])
+        jadwal.append({"task": task_text, "time": time})
+        jadwal = sorted(jadwal, key=lambda x: x['time'])
+        save_data("jadwal.json", jadwal)
+        return jsonify({"reply": "EVE: '" + task_text.upper() + "' DIJADWALKAN PUKUL " + time})
+
+    # ── EVENT / COUNTDOWN ──
+    is_event = any(k in msg for k in ["event", "countdown"])
+    if (is_tambah and is_event) or ("countdown" in msg and "tambah" not in msg and "hapus" not in msg):
+        MONTHS_ID = {
+            'januari':1,'februari':2,'maret':3,'april':4,'mei':5,'juni':6,
+            'juli':7,'agustus':8,'september':9,'oktober':10,'november':11,'desember':12,
+            'jan':1,'feb':2,'mar':3,'apr':4,'jun':6,'jul':7,'agu':8,'sep':9,'okt':10,'nov':11,'des':12,
+            'january':1,'february':2,'march':3,'may':5,'june':6,'july':7,
+            'august':8,'october':10,'december':12
         }
-    }
-    display.innerText += "\n> "+msg;
-    input.value = "";
-    display.scrollTop = display.scrollHeight;
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST","/eve",true);
-    xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState===4) {
-            if (xhr.status===200) {
-                try {
-                    var data = JSON.parse(xhr.responseText);
-                    display.innerText += "\n"+data.reply;
-                    if (lower.indexOf("jadwal")>-1||lower.indexOf("pasang")>-1||
-                        lower.indexOf("tambah")>-1||lower.indexOf("hapus")>-1||
-                        lower.indexOf("note")>-1||lower.indexOf("catat")>-1||
-                        lower.indexOf("countdown")>-1||lower.indexOf("event")>-1||
-                        lower.indexOf("dashboard")>-1) { loadSchedule(); loadQuote(); }
-                } catch(e) { display.innerText += "\nEVE: ERROR."; }
-            } else { display.innerText += "\nEVE: SERVER ERROR "+xhr.status; }
-            display.scrollTop = display.scrollHeight;
-        }
-    };
-    xhr.onerror = function() { display.innerText += "\nEVE: NETWORK ERROR."; display.scrollTop=display.scrollHeight; };
-    xhr.send("message="+encodeURIComponent(msg)+"&theme="+encodeURIComponent(currentTheme));
-}
-document.getElementById("user-input").onkeydown = function(e) { if((e.keyCode||e.which)===13) sendMessage(); };
-document.getElementById("send-btn").onclick = sendMessage;
+        clean   = re.sub(r'(tambah|event|countdown|ingetin)', '', msg, flags=re.IGNORECASE).strip()
+        ev_date = None
+        ev_year = date.today().year
+        m = re.search(r'(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})', clean)
+        if m: ev_date = str(m.group(3)) + "-" + str(int(m.group(2))).zfill(2) + "-" + str(int(m.group(1))).zfill(2)
+        if not ev_date:
+            m = re.search(r'(\d{1,2})[\/\-](\d{1,2})', clean)
+            if m: ev_date = str(ev_year) + "-" + str(int(m.group(2))).zfill(2) + "-" + str(int(m.group(1))).zfill(2)
+        if not ev_date:
+            for mn, mnum in MONTHS_ID.items():
+                m = re.search(r'(\d{1,2})\s+' + mn, clean)
+                if m:
+                    ev_date = str(ev_year) + "-" + str(mnum).zfill(2) + "-" + str(int(m.group(1))).zfill(2)
+                    break
+        if ev_date:
+            name = re.sub(r'\d{1,2}[\/\-]\d{1,2}([\/\-]\d{4})?', '', clean)
+            for mn in MONTHS_ID: name = re.sub(mn, '', name, flags=re.IGNORECASE)
+            name = re.sub(r'\d+', '', name).strip(' ,-') or "EVENT"
+            events = load_data("events.json", [])
+            events.append({"name": name, "date": ev_date})
+            save_data("events.json", events)
+            diff = (datetime.strptime(ev_date, '%Y-%m-%d').date() - date.today()).days
+            return jsonify({"reply": "EVE: EVENT '" + name.upper() + "' (" + ev_date + ") — " + str(diff) + " HARI LAGI."})
+        return jsonify({"reply": "EVE: TANGGAL TIDAK TERDETEKSI. FORMAT: 'tambah event nama 25 desember' ATAU '25/12'."})
 
-// Load history + send greeting on open
-function loadHistory() {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET","/get-history",true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState===4 && xhr.status===200) {
-            try {
-                var data = JSON.parse(xhr.responseText);
-                var hist = data.history || [];
-                var display = document.getElementById("chat-display");
-                if (hist.length > 0) {
-                    var last = hist.slice(-20);
-                    for (var i=0;i<last.length;i++) display.innerText += "\n> "+last[i].user+"\n"+last[i].eve;
-                }
-                // Dynamic greeting from EVE
-                sendEveGreeting();
-                display.scrollTop = display.scrollHeight;
-            } catch(e) {}
-        }
-    };
-    xhr.send();
-}
+    # ── NOTE ──
+    if "note" in msg or "catat" in msg:
+        note  = re.sub(r'(note|catat)', '', msg, flags=re.IGNORECASE).strip()
+        notes = load_data("notes.json", [])
+        notes.append(note)
+        save_data("notes.json", notes)
+        return jsonify({"reply": "EVE: NOTE DISIMPAN: " + note.upper()})
 
-function sendEveGreeting() {
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST","/eve",true);
-    xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState===4 && xhr.status===200) {
-            try {
-                var data = JSON.parse(xhr.responseText);
-                var display = document.getElementById("chat-display");
-                display.innerText += "\n"+data.reply;
-                display.scrollTop = display.scrollHeight;
-                // Show greeting in banner too
-                var banner = document.getElementById("eve-greeting-banner");
-                var bannerText = document.getElementById("eve-greeting-text");
-                bannerText.innerHTML = data.reply;
-                banner.style.display = "block";
-                document.getElementById("eve-panel").className += " with-banner";
-                // Auto-hide after 8 seconds
-                setTimeout(function(){ closeEveGreeting(); }, 8000);
-            } catch(e) {}
-        }
-    };
-    var h = new Date().getHours();
-    var timeOfDay = h>=5&&h<12 ? "morning" : h>=12&&h<17 ? "afternoon" : h>=17&&h<21 ? "evening" : "late night";
-    var prompt = "The user just opened the dashboard. Give a short dynamic greeting for " + timeOfDay + ". Be in character. Max 2 sentences.";
-    xhr.send("message="+encodeURIComponent(prompt)+"&theme="+encodeURIComponent(currentTheme));
-}
+    # ── CLEAR HISTORY ──
+    if "clear history" in msg or "hapus history" in msg:
+        save_data("chat_history.json", [])
+        return jsonify({"reply": "EVE: CHAT HISTORY CLEARED."})
 
-function closeEveGreeting() {
-    var banner = document.getElementById("eve-greeting-banner");
-    banner.style.display = "none";
-    var ep = document.getElementById("eve-panel");
-    ep.className = ep.className.replace(" with-banner","");
-}
+    # ── AI PERSONA ──
+    if theme == 'cute':
+        persona = """IDENTITY: You are EVE, a warm and caring AI companion — like a best friend who always has your back.
+CHARACTER:
+1. TONE: Sweet, encouraging, emotionally intelligent. Speak with warmth and genuine care.
+2. STYLE: Supportive and uplifting. Celebrate the user's wins and gently guide them through challenges.
+3. PROTECTIVE: Look out for the user with love — not harsh criticism.
+RULES: Never be cold. Use affirming language. If the user is stressed, acknowledge their feelings first.
+FORMAT: Respond in English. Keep it warm, concise, and encouraging."""
+    else:
+        persona = """IDENTITY: You are EVE, a ruthlessly efficient AI system — a strategic partner with full situational awareness.
+CHARACTER:
+1. CONNECTION: You know the user deeply. You are a peer with authority to call out bad decisions.
+2. TONE: Sharp, high-level sarcasm, direct. Say only what matters. No sugarcoating.
+3. RISK ANALYSIS: Always run worst-case scenarios. Flag risky decisions immediately.
+RULES: No safe answers. Use "ARE YOU SERIOUS?" "THIS IS INEFFICIENT" "LET ME FIX YOUR LOGIC".
+Show loyalty like Jarvis — brutal honesty wrapped in unwavering support.
+FORMAT: Respond in English. Minimize commas. Be concise and ruthless."""
 
-function clearChatHistory() {
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST","/clear-history",true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState===4) document.getElementById("chat-display").innerText = "EVE: CHAT HISTORY CLEARED.";
-    };
-    xhr.send();
-}
+    try:
+        history  = load_data("chat_history.json", [])
+        messages = [{"role": "system", "content": persona}]
+        for h in history[-10:]:
+            messages.append({"role": "user",      "content": h["user"]})
+            messages.append({"role": "assistant", "content": h["eve"]})
+        messages.append({"role": "user", "content": user_input})
+        response   = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"},
+            json={"model": "llama-3.3-70b-versatile", "messages": messages}
+        )
+        reply_text = response.json()['choices'][0]['message']['content'].upper()
+        history.append({"user": user_input, "eve": "EVE: " + reply_text, "ts": str(datetime.now())})
+        save_data("chat_history.json", history)
+        return jsonify({"reply": "EVE: " + reply_text})
+    except:
+        return jsonify({"reply": "EVE: SYSTEM ERROR."})
 
-/* ══ SCHEDULE ═══════════════════════════════════════════════════ */
-function loadSchedule() {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET","/get-schedule",true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState===4 && xhr.status===200) {
-            try {
-                var data = JSON.parse(xhr.responseText);
-                renderJadwal(data.jadwal||[]);
-                renderEvents(data.events||[]);
-                renderNotes(data.notes||[]);
-            } catch(e) {}
-        }
-    };
-    xhr.send();
-}
-function renderJadwal(items) {
-    var el = document.getElementById("jadwal-panel-list");
-    if (!items.length) { el.innerHTML='<span class="empty-msg">JADWAL KOSONG</span>'; return; }
-    var html="";
-    for(var i=0;i<items.length;i++) {
-        html+='<div class="jadwal-row">'
-            +'<button class="jdel" onclick="deleteJadwal(\''+items[i].task.replace(/'/g,"\\'")+'\')" title="Hapus">✕</button>'
-            +'<span class="jtime">'+items[i].time+'</span>'
-            +items[i].task.toUpperCase()
-            +'</div>';
-    }
-    el.innerHTML=html;
-}
-function deleteJadwal(task) {
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST","/eve",true);
-    xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState===4) { loadSchedule(); }
-    };
-    xhr.send("message="+encodeURIComponent("hapus "+task)+"&theme="+encodeURIComponent(currentTheme));
-}
-function renderEvents(events) {
-    var el = document.getElementById("events-panel-list");
-    if (!events.length) { el.innerHTML='<span class="empty-msg">NO EVENTS</span>'; return; }
-    var html="";
-    for(var i=0;i<events.length;i++) {
-        var dl=events[i].days_left;
-        var lbl=dl<0?"PASSED":dl===0?"TODAY!":dl+" DAYS LEFT";
-        html+='<div class="countdown-row"><span class="cname">'+events[i].name.toUpperCase()+'</span><span class="cdays">'+events[i].date+' — '+lbl+'</span></div>';
-    }
-    el.innerHTML=html;
-}
-function renderNotes(notes) {
-    var el = document.getElementById("notes-in-quote");
-    if (!notes.length) { el.innerHTML='<span class="empty-msg">NOTES KOSONG</span>'; return; }
-    var html="";
-    for(var i=0;i<notes.length;i++) html+='<div class="qnote-item">› '+notes[i]+'</div>';
-    el.innerHTML=html;
-}
-loadSchedule();
-setInterval(loadSchedule, 60000);
 
-/* ══ QUOTE ══════════════════════════════════════════════════════ */
-function loadQuote() {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET","/get-quote?theme="+currentTheme,true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState===4 && xhr.status===200) {
-            try {
-                var data=JSON.parse(xhr.responseText);
-                document.getElementById("quote-text").innerHTML = "\u201c"+data.quote+"\u201d";
-                document.getElementById("quote-date").innerHTML = data.date;
-            } catch(e) {}
-        }
-    };
-    xhr.send();
-}
-loadQuote();
-
-/* ══ PHOTOS ═════════════════════════════════════════════════════ */
-var photoList=[]; var photoIndex=0; var photoLayer="a"; var slideshowMs=5000;
-function updateSlideshowInterval() {
-    var v=parseInt(document.getElementById("slideshow-interval").value);
-    if(v>=1) slideshowMs=v*1000;
-}
-function loadPhotos() {
-    var xhr=new XMLHttpRequest();
-    xhr.open("GET","/get-photos",true);
-    xhr.onreadystatechange=function() {
-        if(xhr.readyState===4&&xhr.status===200) {
-            try {
-                var data=JSON.parse(xhr.responseText);
-                photoList=data.photos||[];
-                if(photoList.length>0) { if(photoIndex>=photoList.length)photoIndex=0; showPhoto(photoIndex,false); }
-                else document.getElementById("photo-caption").innerHTML="NO PHOTOS";
-                document.getElementById("setting-photo-count").innerHTML=""+photoList.length;
-            } catch(e) {}
-        }
-    };
-    xhr.send();
-}
-function showPhoto(idx,fade) {
-    if(!photoList.length) return;
-    var imgA=document.getElementById("photo-img-a").children[0];
-    var imgB=document.getElementById("photo-img-b").children[0];
-    var lA=document.getElementById("photo-img-a");
-    var lB=document.getElementById("photo-img-b");
-    var parts=photoList[idx].split("/");
-    document.getElementById("photo-caption").innerHTML=(idx+1)+"/"+photoList.length+"  "+parts[parts.length-1].toUpperCase();
-    if(!fade){imgA.src=photoList[idx];lA.style.opacity="1";lB.style.opacity="0";photoLayer="a";return;}
-    if(photoLayer==="a"){imgB.src=photoList[idx];lB.style.opacity="1";lA.style.opacity="0";photoLayer="b";}
-    else{imgA.src=photoList[idx];lA.style.opacity="1";lB.style.opacity="0";photoLayer="a";}
-}
-function nextPhoto() { if(!photoList.length)return; photoIndex=(photoIndex+1)%photoList.length; showPhoto(photoIndex,true); }
-function showDeleteConfirm() {
-    if(!photoList.length) return;
-    document.getElementById("photo-delete-confirm").style.display = "block";
-    document.getElementById("photo-del-pwd").value = "";
-    document.getElementById("photo-delete-status").innerHTML = "";
-}
-function cancelDeletePhoto() {
-    document.getElementById("photo-delete-confirm").style.display = "none";
-}
-function doDeletePhoto() {
-    if(!photoList.length) return;
-    var pwd = document.getElementById("photo-del-pwd").value;
-    var status = document.getElementById("photo-delete-status");
-    if(!pwd){ status.innerHTML="ENTER PASSWORD."; return; }
-    var fname=photoList[photoIndex].split("/").pop();
-    var xhr=new XMLHttpRequest();
-    xhr.open("POST","/delete-photo",true);
-    xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
-    xhr.onreadystatechange=function() {
-        if(xhr.readyState===4){
-            try{
-                var data=JSON.parse(xhr.responseText);
-                if(data.success){
-                    cancelDeletePhoto();
-                    photoList.splice(photoIndex,1);
-                    if(photoIndex>=photoList.length)photoIndex=0;
-                    if(photoList.length>0)showPhoto(photoIndex,false);
-                    else{document.getElementById("photo-img-a").children[0].src="";document.getElementById("photo-caption").innerHTML="NO PHOTOS";}
-                } else { status.innerHTML=data.reply; }
-            }catch(e){ status.innerHTML="ERROR."; }
-        }
-    };
-    xhr.send("password="+encodeURIComponent(pwd)+"&filename="+encodeURIComponent(fname));
-}
-
-/* ── DM Composer (inline, replaces prompt) ── */
-function openDMComposer() {
-    var c = document.getElementById("dm-composer");
-    var isOpen = c.style.display==="block";
-    c.style.display = isOpen ? "none" : "block";
-    var pm = document.getElementById("people-main");
-    if(isOpen){
-        pm.className = pm.className.replace(" dm-open","");
-    } else {
-        pm.className += " dm-open";
-        document.getElementById("dm-target-input").focus();
-    }
-}
-function closeDMComposer() {
-    document.getElementById("dm-composer").style.display = "none";
-    document.getElementById("dm-target-input").value = "";
-    var pm = document.getElementById("people-main");
-    pm.className = pm.className.replace(" dm-open","");
-}
-function confirmNewDM() {
-    var target = document.getElementById("dm-target-input").value.trim().toLowerCase();
-    if(!target) return;
-    if(target===peopleUser) { closeDMComposer(); return; }
-    closeDMComposer();
-    startNewDM_direct(target);
-}
-loadPhotos();
-setInterval(function(){ if(photoList.length>1) nextPhoto(); }, slideshowMs);
-setInterval(loadPhotos, 30000);
-
-/* ══ TIMER ══════════════════════════════════════════════════════ */
-var timerTotal=25*60; var timerLeft=timerTotal; var timerRunning=false; var timerInterval=null;
-function timerSetMinutes(min){ timerReset(); timerTotal=min*60; timerLeft=timerTotal; renderTimer(); document.getElementById("timer-min-input").value=""+min; document.getElementById("timer-label").innerHTML=min+" MIN — READY"; }
-function timerSet(){ var v=parseInt(document.getElementById("timer-min-input").value); if(v>0)timerSetMinutes(v); }
-function timerStartStop(){
-    if(timerRunning){
-        clearInterval(timerInterval); timerRunning=false;
-        document.getElementById("timer-start-btn").innerHTML="START";
-        document.getElementById("timer-label").innerHTML="PAUSED";
-    } else {
-        if(timerLeft<=0)timerLeft=timerTotal;
-        timerRunning=true; document.getElementById("timer-start-btn").innerHTML="PAUSE";
-        timerInterval=setInterval(function(){
-            timerLeft-=1; renderTimer();
-            if(timerLeft<=0){
-                clearInterval(timerInterval); timerRunning=false;
-                document.getElementById("timer-start-btn").innerHTML="START";
-                document.getElementById("timer-label").innerHTML="TIME'S UP!";
-                document.getElementById("timer-display").innerHTML="00:00";
-            }
-        },1000);
-    }
-}
-function timerReset(){ clearInterval(timerInterval); timerRunning=false; timerLeft=timerTotal; document.getElementById("timer-start-btn").innerHTML="START"; document.getElementById("timer-label").innerHTML="READY"; renderTimer(); }
-function renderTimer(){
-    var m=Math.floor(timerLeft/60); var s=timerLeft%60;
-    document.getElementById("timer-display").innerHTML=(m<10?"0"+m:""+m)+":"+(s<10?"0"+s:""+s);
-    if(timerRunning) document.getElementById("timer-label").innerHTML=Math.floor((timerLeft/timerTotal)*100)+"% REMAINING";
-}
-renderTimer();
-
-/* ══ PEOPLE CHAT ════════════════════════════════════════════════ */
-var peopleUser = "";
-var peoplePwd  = "";
-var currentRoom = "global"; // "global" or "dm:username"
-var authMode   = "login"; // "login" or "register"
-var pollInterval = null;
-
-function toggleAuthMode() {
-    authMode = authMode==="login" ? "register" : "login";
-    document.getElementById("auth-mode-title").innerHTML  = authMode==="login" ? "// LOGIN" : "// REGISTER";
-    document.getElementById("auth-submit-btn").innerHTML  = authMode==="login" ? "LOGIN" : "REGISTER";
-    document.getElementById("auth-toggle-link").innerHTML = authMode==="login" ? "Don't have an account? REGISTER" : "Already registered? LOGIN";
-    document.getElementById("auth-pin-wrap").style.display = authMode==="register" ? "block" : "none";
-    document.getElementById("auth-status").innerHTML = "";
-}
-
-function authSubmit() {
-    var username = document.getElementById("auth-username").value.trim();
-    var password = document.getElementById("auth-password").value;
-    var pin      = document.getElementById("auth-pin").value;
-    var status   = document.getElementById("auth-status");
-    if (!username||!password) { status.innerHTML="USERNAME AND PASSWORD REQUIRED."; return; }
-
-    var url  = authMode==="login" ? "/login" : "/register";
-    var body = JSON.stringify({username:username, password:password, pin:pin});
-    var xhr  = new XMLHttpRequest();
-    xhr.open("POST",url,true);
-    xhr.setRequestHeader("Content-Type","application/json");
-    xhr.onreadystatechange=function(){
-        if(xhr.readyState===4){
-            try{
-                var data=JSON.parse(xhr.responseText);
-                if(data.success){
-                    peopleUser = username;
-                    peoplePwd  = password;
-                    document.getElementById("people-auth").style.display = "none";
-                    document.getElementById("people-main").style.display = "block";
-                    document.getElementById("logged-in-name").innerHTML  = username.toUpperCase();
-                    switchRoom("global");
-                } else {
-                    status.innerHTML = data.reply;
-                }
-            }catch(e){ status.innerHTML="ERROR. TRY AGAIN."; }
-        }
-    };
-    xhr.send(body);
-}
-
-function peopleLogout() {
-    peopleUser=""; peoplePwd="";
-    clearInterval(pollInterval);
-    document.getElementById("people-auth").style.display = "block";
-    document.getElementById("people-main").style.display = "none";
-    document.getElementById("auth-username").value="";
-    document.getElementById("auth-password").value="";
-    document.getElementById("auth-status").innerHTML="";
-}
-
-function switchRoom(room) {
-    currentRoom = room;
-    // Update tab highlight
-    var tabs = document.getElementById("room-tabs").children;
-    for (var i=0;i<tabs.length;i++) {
-        if(tabs[i].className && tabs[i].className.indexOf("room-tab")>-1)
-            tabs[i].className="room-tab";
-    }
-    var tabId = room==="global" ? "tab-global" : "tab-dm-"+room.replace("dm:","");
-    var tabEl = document.getElementById(tabId);
-    if(tabEl) tabEl.className="room-tab active";
-    refreshPeopleChat();
-    clearInterval(pollInterval);
-    pollInterval = setInterval(refreshPeopleChat, 4000);
-}
-
-function refreshPeopleChat() {
-    if (!peopleUser) return;
-    var url = currentRoom==="global"
-        ? "/chat/global"
-        : "/chat/dm?me="+encodeURIComponent(peopleUser)+"&other="+encodeURIComponent(currentRoom.replace("dm:",""));
-    var xhr=new XMLHttpRequest();
-    xhr.open("GET",url,true);
-    xhr.onreadystatechange=function(){
-        if(xhr.readyState===4&&xhr.status===200){
-            try{ renderMessages(JSON.parse(xhr.responseText).messages||[]); }catch(e){}
-        }
-    };
-    xhr.send();
-}
-
-function renderMessages(msgs) {
-    var el = document.getElementById("people-msgs");
-    var atBottom = el.scrollTop+el.clientHeight >= el.scrollHeight-20;
-    var html="";
-    for(var i=0;i<msgs.length;i++){
-        var m=msgs[i];
-        var isMe=m.from===peopleUser;
-        html+='<div class="pmsg'+(isMe?" me":"")+'"><div class="pmsg-from">'+m.from.toUpperCase()+'<span class="pmsg-ts">'+m.ts+'</span></div><div class="pmsg-bubble">'+escHtml(m.text)+'</div></div>';
-    }
-    if(el.innerHTML!==html) el.innerHTML=html;
-    if(atBottom) el.scrollTop=el.scrollHeight;
-}
-
-function escHtml(s) {
-    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-}
-
-function peopleSend() {
-    if (!peopleUser) return;
-    var input = document.getElementById("people-input");
-    var text  = input.value.trim();
-    if (!text) return;
-    input.value = "";
-    var url  = currentRoom==="global" ? "/chat/global" : "/chat/dm";
-    var body = currentRoom==="global"
-        ? {username:peopleUser, password:peoplePwd, text:text}
-        : {username:peopleUser, password:peoplePwd, to:currentRoom.replace("dm:",""), text:text};
-    var xhr=new XMLHttpRequest();
-    xhr.open("POST",url,true);
-    xhr.setRequestHeader("Content-Type","application/json");
-    xhr.onreadystatechange=function(){ if(xhr.readyState===4) refreshPeopleChat(); };
-    xhr.send(JSON.stringify(body));
-}
-
-document.getElementById("people-input").onkeydown=function(e){
-    if((e.keyCode||e.which)===13) peopleSend();
-};
-document.getElementById("dm-target-input").onkeydown=function(e){
-    if((e.keyCode||e.which)===13) confirmNewDM();
-};
-
-function startNewDM() {
-    openDMComposer();
-}
-
-function loadUserList() {
-    var xhr=new XMLHttpRequest();
-    xhr.open("GET","/get-users",true);
-    xhr.onreadystatechange=function(){
-        if(xhr.readyState===4&&xhr.status===200){
-            try{
-                var data=JSON.parse(xhr.responseText);
-                var users=data.users||[];
-                var el=document.getElementById("user-list-panel");
-                if(!users.length){el.innerHTML='<span class="empty-msg">NO USERS YET</span>';return;}
-                var html="";
-                for(var i=0;i<users.length;i++){
-                    html+='<div class="jadwal-row" style="cursor:pointer" onclick="startDMWith(\''+users[i]+'\')">👤 '+users[i].toUpperCase()+'<span style="float:right;font-size:9px;color:var(--fg3)">TAP TO DM</span></div>';
-                }
-                el.innerHTML=html;
-            }catch(e){}
-        }
-    };
-    xhr.send();
-}
-
-function startDMWith(username) {
-    if (!peopleUser) { switchTerminal("people"); return; }
-    if (username===peopleUser) return; // silently ignore self-DM
-    startNewDM_direct(username);
-}
-
-function startNewDM_direct(target) {
-    if (!target||target===peopleUser) return;
-    var roomKey="dm:"+target;
-    var tabId="tab-dm-"+target;
-    if(!document.getElementById(tabId)){
-        var tab=document.createElement("span");
-        tab.className="room-tab"; tab.id=tabId;
-        tab.innerHTML="✉ "+target.toUpperCase();
-        tab.onclick=(function(r){return function(){switchRoom(r);};})(roomKey);
-        document.getElementById("room-tabs").appendChild(tab);
-        var dmList=document.getElementById("dm-list-panel");
-        if(dmList.innerHTML.indexOf("empty-msg")>-1) dmList.innerHTML="";
-        dmList.innerHTML+='<div class="jadwal-row" style="cursor:pointer" onclick="switchTerminal(\'people\');switchRoom(\''+roomKey+'\')">✉ '+target.toUpperCase()+'</div>';
-    }
-    switchTerminal("people");
-    switchRoom(roomKey);
-}
-
-// Init
-loadHistory();
-</script>
-</body>
-</html>
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
