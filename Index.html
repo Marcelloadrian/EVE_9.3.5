@@ -1,260 +1,510 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVE SYSTEM</title>
-    <style>
-        * { -webkit-box-sizing: border-box; box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>EVE SYSTEM</title>
+<style>
+/* ══════════════════════════════════════
+   THEME VARIABLES
+   ══════════════════════════════════════ */
+body.theme-terminal {
+    --bg:        #000000;
+    --bg2:       #0a0a0a;
+    --fg:        #00ff00;
+    --fg2:       #00aa00;
+    --fg3:       #005500;
+    --accent:    #00ff00;
+    --accent2:   #003300;
+    --red:       #ff4444;
+    --border:    #00ff00;
+    --border2:   #003300;
+    --title-bg:  #00ff00;
+    --title-fg:  #000000;
+    --nav-bg:    #000000;
+    --nav-act:   #00ff00;
+    --nav-act-fg:#000000;
+    --input-bg:  #000000;
+    --radius:    0px;
+    --font:      'Courier New', Courier, monospace;
+    --font-size: 12px;
+}
+body.theme-cute {
+    --bg:        #fff0f5;
+    --bg2:       #ffe4ef;
+    --fg:        #d63384;
+    --fg2:       #e91e8c;
+    --fg3:       #f8bbd9;
+    --accent:    #ff69b4;
+    --accent2:   #ffe0ef;
+    --red:       #e53935;
+    --border:    #f48fb1;
+    --border2:   #fce4ec;
+    --title-bg:  #ff69b4;
+    --title-fg:  #ffffff;
+    --nav-bg:    #fce4ec;
+    --nav-act:   #ff69b4;
+    --nav-act-fg:#ffffff;
+    --input-bg:  #ffffff;
+    --radius:    12px;
+    --font:      Georgia, 'Times New Roman', serif;
+    --font-size: 13px;
+}
 
-        html, body {
-            height: 100%;
-            overflow: hidden;
-            background: #000;
-            color: #0f0;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
-        }
+/* ══════════════════════════════════════
+   RESET & BASE
+   ══════════════════════════════════════ */
+* { -webkit-box-sizing: border-box; box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+    height: 100%; overflow: hidden;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font);
+    font-size: var(--font-size);
+    -webkit-transition: background 0.4s, color 0.4s;
+    transition: background 0.4s, color 0.4s;
+}
 
-        /* ── HEADER ───────────────────────────── */
-        #header {
-            height: 30px;
-            line-height: 30px;
-            border-bottom: 1px solid #0f0;
-            padding: 0 12px;
-            overflow: hidden;
-            letter-spacing: 3px;
-            font-size: 11px;
-        }
-        #header .title { float: left; }
-        #header .clock { float: right; }
-        #header:after { content: ""; display: table; clear: both; }
+/* ══════════════════════════════════════
+   HEADER
+   ══════════════════════════════════════ */
+#header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 32px;
+    line-height: 32px;
+    border-bottom: 1px solid var(--border);
+    padding: 0 12px;
+    background: var(--bg);
+    z-index: 10;
+    overflow: hidden;
+    letter-spacing: 3px;
+    font-size: 11px;
+}
+#header .htitle { float: left; }
+#header .hright { float: right; }
+#header:after { content: ""; display: table; clear: both; }
 
-        /* ── GRID: 2 cols, 2 rows ─────────────── */
-        /* 
-           [  CHAT (tall)  ] [ PHOTO       ]
-           [               ] [ JADWAL      ]
-           [               ] [ NOTES       ]
-        */
-        #grid {
-            position: absolute;
-            top: 31px;
-            left: 0; right: 0; bottom: 0;
-            overflow: hidden;
-        }
+/* ══════════════════════════════════════
+   MAIN GRID
+   ══════════════════════════════════════ */
+#grid {
+    position: fixed;
+    top: 32px; left: 0; right: 0; bottom: 0;
+}
 
-        /* Left column: full height */
-        #col-left {
-            position: absolute;
-            top: 0; left: 0; bottom: 0;
-            width: 52%;
-            border-right: 1px solid #0f0;
-        }
+/* LEFT: terminal, full height */
+#col-left {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 52%;
+    border-right: 2px solid var(--accent);
+}
 
-        /* Right column: 3 stacked panels */
-        #col-right {
-            position: absolute;
-            top: 0; right: 0; bottom: 0;
-            left: 52%;
-        }
+/* RIGHT: active panel + navbar */
+#col-right {
+    position: absolute;
+    top: 0; left: 52%; right: 0; bottom: 0;
+}
 
-        /* ── PANEL SHARED ─────────────────────── */
-        .panel-title {
-            background: #0f0;
-            color: #000;
-            padding: 3px 10px;
-            font-size: 10px;
-            letter-spacing: 3px;
-            font-weight: bold;
-            height: 22px;
-            line-height: 16px;
-        }
+/* ══════════════════════════════════════
+   TERMINAL (LEFT)
+   ══════════════════════════════════════ */
+#chat-panel {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    bottom: 46px;
+}
+.panel-title {
+    height: 24px;
+    line-height: 24px;
+    background: var(--title-bg);
+    color: var(--title-fg);
+    padding: 0 10px;
+    font-size: 10px;
+    letter-spacing: 3px;
+    font-weight: bold;
+    border-radius: var(--radius) var(--radius) 0 0;
+}
+#chat-display {
+    position: absolute;
+    top: 24px; left: 0; right: 0; bottom: 0;
+    overflow-y: scroll;
+    padding: 8px 10px;
+    white-space: pre-wrap;
+    font-size: 12px;
+    line-height: 1.65;
+    word-break: break-word;
+    background: var(--bg);
+    color: var(--fg);
+}
+#chat-input-row {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 46px;
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+    background: var(--bg);
+}
+#user-input {
+    float: left; width: 76%; height: 46px;
+    background: var(--input-bg);
+    color: var(--fg);
+    border: none;
+    border-right: 1px solid var(--border);
+    padding: 0 10px;
+    outline: none;
+    font-family: var(--font);
+    font-size: 12px;
+}
+#send-btn {
+    float: left; width: 24%; height: 46px;
+    background: var(--accent);
+    color: var(--title-fg);
+    border: none; cursor: pointer;
+    font-family: var(--font);
+    font-size: 11px; font-weight: bold;
+    letter-spacing: 2px;
+}
+#chat-input-row:after { content: ""; display: table; clear: both; }
 
-        /* ── CHAT PANEL ───────────────────────── */
-        #chat-panel {
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            bottom: 46px; /* input area height */
-        }
-        #chat-display {
-            position: absolute;
-            top: 22px; /* title height */
-            left: 0; right: 0; bottom: 0;
-            overflow-y: scroll;
-            padding: 8px;
-            white-space: pre-wrap;
-            font-size: 12px;
-            line-height: 1.6;
-            word-break: break-word;
-        }
+/* ══════════════════════════════════════
+   RIGHT PANELS
+   ══════════════════════════════════════ */
+#active-panel {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    bottom: 52px;
+    overflow: hidden;
+}
+/* individual panels, all absolute fill */
+.rp {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+}
+.rp.active { display: block; }
+.rp-inner {
+    position: absolute;
+    top: 24px; left: 0; right: 0; bottom: 0;
+    overflow-y: scroll;
+    padding: 10px;
+    background: var(--bg);
+}
 
-        /* Input row pinned to bottom of left col */
-        #chat-input-row {
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
-            height: 46px;
-            border-top: 1px solid #0f0;
-            overflow: hidden;
-        }
-        #user-input {
-            float: left;
-            width: 76%;
-            height: 46px;
-            background: #000;
-            color: #0f0;
-            border: none;
-            border-right: 1px solid #0f0;
-            padding: 0 10px;
-            outline: none;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
-        }
-        #send-btn {
-            float: left;
-            width: 24%;
-            height: 46px;
-            background: #0f0;
-            color: #000;
-            border: none;
-            cursor: pointer;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
-            font-weight: bold;
-            letter-spacing: 2px;
-        }
-        #chat-input-row:after { content: ""; display: table; clear: both; }
+/* ══════════════════════════════════════
+   NAVBAR (bottom of right col)
+   ══════════════════════════════════════ */
+#navbar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 52px;
+    background: var(--nav-bg);
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+}
+.nb-btn {
+    float: left;
+    width: 20%;
+    height: 52px;
+    background: transparent;
+    color: var(--fg2);
+    border: none;
+    border-right: 1px solid var(--border2);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 8px;
+    letter-spacing: 1px;
+    padding: 6px 2px 4px 2px;
+    text-align: center;
+    -webkit-transition: background 0.2s, color 0.2s;
+    transition: background 0.2s, color 0.2s;
+}
+.nb-btn .nb-icon { font-size: 16px; display: block; margin-bottom: 2px; }
+.nb-btn.active { background: var(--nav-act); color: var(--nav-act-fg); }
+.nb-btn:last-child { border-right: none; }
+#navbar:after { content: ""; display: table; clear: both; }
 
-        /* ── RIGHT PANELS ─────────────────────── */
-        /* Photo: top 42% of right col */
-        #panel-photo {
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 42%;
-            border-bottom: 1px solid #0f0;
-        }
-        #photo-body {
-            position: absolute;
-            top: 22px; left: 0; right: 0; bottom: 0;
-            overflow: hidden;
-        }
-        #photo-frame {
-            height: 72%;
-            background: #030;
-            text-align: center;
-            overflow: hidden;
-        }
-        #photo-frame img {
-            max-width: 100%;
-            max-height: 100%;
-            display: block;
-            margin: 0 auto;
-        }
-        #photo-caption {
-            font-size: 9px;
-            color: #090;
-            letter-spacing: 2px;
-            padding: 3px 8px;
-            height: 18px;
-            overflow: hidden;
-            white-space: nowrap;
-        }
-        #photo-controls {
-            overflow: hidden;
-            border-top: 1px solid #030;
-        }
-        #photo-controls button, #photo-controls a {
-            display: block;
-            float: left;
-            width: 50%;
-            background: #000;
-            color: #0f0;
-            border: none;
-            border-right: 1px solid #030;
-            padding: 5px 2px;
-            cursor: pointer;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 9px;
-            letter-spacing: 1px;
-            text-align: center;
-            text-decoration: none;
-            line-height: 1.4;
-        }
-        #photo-controls .del-btn { color: #f44; }
-        #photo-controls button:last-child,
-        #photo-controls a:last-child { border-right: none; }
-        #photo-controls:after { content: ""; display: table; clear: both; }
+/* ══════════════════════════════════════
+   PANEL: CLOCK & SCHEDULE
+   ══════════════════════════════════════ */
+#big-clock {
+    text-align: center;
+    font-size: 42px;
+    letter-spacing: 4px;
+    padding: 12px 0 6px 0;
+    color: var(--fg);
+    font-weight: bold;
+}
+#big-date {
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--fg2);
+    margin-bottom: 12px;
+}
+.schedule-section-title {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--fg2);
+    border-bottom: 1px solid var(--border2);
+    padding-bottom: 3px;
+    margin-bottom: 6px;
+    margin-top: 10px;
+}
+.jadwal-row {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border2);
+    font-size: 11px;
+    line-height: 1.5;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.jadwal-row .jtime { color: var(--fg2); margin-right: 8px; }
+.countdown-row {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border2);
+    font-size: 11px;
+    line-height: 1.5;
+    overflow: hidden;
+}
+.countdown-row .cname { display: block; }
+.countdown-row .cdays { font-size: 10px; color: var(--fg2); }
+.empty-msg { color: var(--fg3); font-size: 10px; font-style: italic; }
 
-        /* Jadwal: middle 33% */
-        #panel-jadwal {
-            position: absolute;
-            left: 0; right: 0;
-            top: 42%;
-            height: 33%;
-            border-bottom: 1px solid #0f0;
-        }
-        #jadwal-body {
-            position: absolute;
-            top: 22px; left: 0; right: 0; bottom: 0;
-            overflow-y: scroll;
-            padding: 6px 8px;
-        }
-        .jadwal-item {
-            border-bottom: 1px solid #020;
-            padding: 3px 0;
-            font-size: 11px;
-            line-height: 1.5;
-            white-space: nowrap;
-            overflow: hidden;
-        }
-        .jadwal-item .time { color: #0a0; margin-right: 8px; }
-        .empty-msg { color: #040; font-size: 10px; font-style: italic; }
+/* ══════════════════════════════════════
+   PANEL: PHOTO
+   ══════════════════════════════════════ */
+#photo-wrap {
+    position: absolute;
+    top: 24px; left: 0; right: 0; bottom: 0;
+}
+#photo-img-wrap {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    bottom: 56px;
+    background: var(--bg2);
+    overflow: hidden;
+    text-align: center;
+}
+/* fade transition */
+#photo-img-a, #photo-img-b {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    -webkit-transition: opacity 0.8s ease;
+    transition: opacity 0.8s ease;
+    text-align: center;
+}
+#photo-img-a img, #photo-img-b img {
+    max-width: 100%; max-height: 100%;
+    display: block; margin: 0 auto;
+    height: 100%; width: 100%;
+    object-fit: cover;
+}
+#photo-img-b { opacity: 0; }
+#photo-caption {
+    position: absolute;
+    bottom: 56px; left: 0; right: 0;
+    font-size: 9px; color: var(--fg2);
+    letter-spacing: 2px; padding: 3px 8px;
+    background: var(--bg);
+    height: 20px; overflow: hidden;
+    white-space: nowrap;
+}
+#photo-btns {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 36px;
+    border-top: 1px solid var(--border2);
+    overflow: hidden;
+}
+#photo-btns button, #photo-btns a {
+    float: left; width: 50%; height: 36px;
+    background: var(--bg); color: var(--fg);
+    border: none; border-right: 1px solid var(--border2);
+    cursor: pointer;
+    font-family: var(--font); font-size: 9px;
+    letter-spacing: 1px; text-align: center;
+    text-decoration: none; line-height: 36px;
+}
+#photo-btns .del-btn { color: var(--red); }
+#photo-btns a { border-right: none; }
+#photo-btns:after { content: ""; display: table; clear: both; }
 
-        /* Notes: bottom 25% */
-        #panel-notes {
-            position: absolute;
-            left: 0; right: 0;
-            top: 75%;
-            bottom: 0;
-        }
-        #notes-body {
-            position: absolute;
-            top: 22px; left: 0; right: 0; bottom: 0;
-            overflow-y: scroll;
-            padding: 6px 8px;
-        }
-        .notes-item {
-            border-bottom: 1px solid #020;
-            padding: 3px 0;
-            font-size: 11px;
-            color: #0c0;
-            line-height: 1.5;
-            white-space: nowrap;
-            overflow: hidden;
-        }
+/* ══════════════════════════════════════
+   PANEL: TIMER
+   ══════════════════════════════════════ */
+#timer-display {
+    text-align: center;
+    font-size: 52px;
+    letter-spacing: 4px;
+    padding: 20px 0 8px 0;
+    color: var(--fg);
+    font-weight: bold;
+}
+#timer-label {
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--fg2);
+    margin-bottom: 16px;
+}
+#timer-btns { text-align: center; margin-bottom: 14px; }
+#timer-btns button {
+    background: var(--bg2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    margin: 0 4px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 10px;
+    letter-spacing: 2px;
+    border-radius: var(--radius);
+}
+#timer-btns button.primary { background: var(--accent); color: var(--title-fg); }
+#timer-input-row {
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--fg2);
+    margin-top: 8px;
+}
+#timer-input-row input {
+    background: var(--input-bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    width: 60px;
+    text-align: center;
+    font-family: var(--font);
+    font-size: 12px;
+    outline: none;
+    margin: 0 4px;
+    border-radius: var(--radius);
+}
+#timer-input-row button {
+    background: var(--accent);
+    color: var(--title-fg);
+    border: none;
+    padding: 7px 12px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 10px;
+    letter-spacing: 2px;
+    border-radius: var(--radius);
+}
 
-        /* ── SCROLLBAR ────────────────────────── */
-        ::-webkit-scrollbar { width: 3px; }
-        ::-webkit-scrollbar-track { background: #000; }
-        ::-webkit-scrollbar-thumb { background: #060; }
-    </style>
+/* ══════════════════════════════════════
+   PANEL: QUOTE
+   ══════════════════════════════════════ */
+#quote-wrap {
+    padding: 20px 14px;
+    text-align: center;
+}
+#quote-text {
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--fg);
+    margin-bottom: 16px;
+    font-style: italic;
+}
+#quote-date {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--fg2);
+}
+#quote-divider {
+    border: none;
+    border-top: 1px solid var(--border2);
+    margin: 16px 0;
+}
+#notes-in-quote { text-align: left; }
+.qnote-item {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border2);
+    font-size: 11px;
+    color: var(--fg);
+    line-height: 1.5;
+}
+
+/* ══════════════════════════════════════
+   PANEL: SETTINGS
+   ══════════════════════════════════════ */
+.setting-section {
+    margin-bottom: 16px;
+}
+.setting-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--fg2);
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border2);
+    padding-bottom: 3px;
+}
+.setting-row {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border2);
+    font-size: 11px;
+    overflow: hidden;
+}
+.setting-row span { float: left; line-height: 28px; }
+.setting-row:after { content: ""; display: table; clear: both; }
+.theme-btn {
+    float: right;
+    background: var(--bg2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 10px;
+    letter-spacing: 1px;
+    border-radius: var(--radius);
+}
+.theme-btn.active-theme { background: var(--accent); color: var(--title-fg); }
+.danger-btn {
+    display: block; width: 100%;
+    background: transparent;
+    color: var(--red);
+    border: 1px solid var(--red);
+    padding: 8px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 10px;
+    letter-spacing: 2px;
+    margin-top: 6px;
+    border-radius: var(--radius);
+}
+
+/* ══════════════════════════════════════
+   SCROLLBAR
+   ══════════════════════════════════════ */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--fg3); }
+</style>
 </head>
-<body>
+<body class="theme-terminal">
 
 <!-- HEADER -->
 <div id="header">
-    <span class="title">[ EVE SYSTEM v2.0 ]</span>
-    <span class="clock" id="clock">--:--:--</span>
+    <span class="htitle">[ EVE SYSTEM v3.0 ]</span>
+    <span class="hright" id="header-clock">--:--:--</span>
 </div>
 
 <!-- GRID -->
 <div id="grid">
 
-    <!-- LEFT: CHAT -->
+    <!-- ═══ LEFT: TERMINAL ═══ -->
     <div id="col-left">
         <div id="chat-panel">
             <div class="panel-title">// TERMINAL</div>
             <div id="chat-display">EVE SYSTEM READY...
-TYPE A COMMAND OR SPEAK FREELY.</div>
+TYPE A COMMAND OR SPEAK FREELY.
+---------------------------------
+COMMANDS: jadwal / pasang / tambah event / note / catat / hapus / timer / dashboard
+---------------------------------</div>
         </div>
         <div id="chat-input-row">
             <input type="text" id="user-input" placeholder="COMMAND...">
@@ -262,63 +512,212 @@ TYPE A COMMAND OR SPEAK FREELY.</div>
         </div>
     </div>
 
-    <!-- RIGHT COL -->
+    <!-- ═══ RIGHT COL ═══ -->
     <div id="col-right">
+        <div id="active-panel">
 
-        <!-- PHOTO -->
-        <div id="panel-photo">
-            <div class="panel-title">// PHOTO FRAME</div>
-            <div id="photo-body">
-                <div id="photo-frame">
-                    <img id="photo-img" src="" alt="">
+            <!-- PANEL 1: CLOCK & SCHEDULE -->
+            <div id="rp-clock" class="rp active">
+                <div class="panel-title">// CLOCK &amp; SCHEDULE</div>
+                <div class="rp-inner">
+                    <div id="big-clock">--:--:--</div>
+                    <div id="big-date">---</div>
+                    <div class="schedule-section-title">JADWAL HARI INI</div>
+                    <div id="jadwal-panel-list"><span class="empty-msg">LOADING...</span></div>
+                    <div class="schedule-section-title">COUNTDOWN EVENTS</div>
+                    <div id="events-panel-list"><span class="empty-msg">LOADING...</span></div>
                 </div>
-                <div id="photo-caption">NO PHOTOS LOADED</div>
-                <div id="photo-controls">
-                    <button class="del-btn" onclick="deletePhoto()">[ DELETE ]</button>
-                    <a href="/upload" id="upload-link">[ + UPLOAD ]</a>
+            </div>
+
+            <!-- PANEL 2: PHOTO -->
+            <div id="rp-photo" class="rp">
+                <div class="panel-title">// PHOTO CAROUSEL</div>
+                <div id="photo-wrap">
+                    <div id="photo-img-wrap">
+                        <div id="photo-img-a"><img src="" alt=""></div>
+                        <div id="photo-img-b"><img src="" alt=""></div>
+                    </div>
+                    <div id="photo-caption">NO PHOTOS LOADED</div>
+                    <div id="photo-btns">
+                        <button class="del-btn" onclick="deletePhoto()">[ DELETE ]</button>
+                        <a href="/upload">[ + UPLOAD ]</a>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- JADWAL -->
-        <div id="panel-jadwal">
-            <div class="panel-title">// JADWAL</div>
-            <div id="jadwal-body">
-                <span class="empty-msg">LOADING...</span>
+            <!-- PANEL 3: TIMER -->
+            <div id="rp-timer" class="rp">
+                <div class="panel-title">// TIMER</div>
+                <div class="rp-inner">
+                    <div id="timer-display">00:00</div>
+                    <div id="timer-label">IDLE</div>
+                    <div id="timer-btns">
+                        <button class="primary" id="timer-start-btn" onclick="timerStartStop()">START</button>
+                        <button onclick="timerReset()">RESET</button>
+                    </div>
+                    <div id="timer-input-row">
+                        SET:
+                        <input type="text" id="timer-min-input" value="25" maxlength="3"> MIN
+                        <button onclick="timerSet()">SET</button>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <!-- NOTES -->
-        <div id="panel-notes">
-            <div class="panel-title">// NOTES</div>
-            <div id="notes-body">
-                <span class="empty-msg">LOADING...</span>
+            <!-- PANEL 4: QUOTE + NOTES -->
+            <div id="rp-quote" class="rp">
+                <div class="panel-title">// QUOTE &amp; NOTES</div>
+                <div class="rp-inner">
+                    <div id="quote-wrap">
+                        <div id="quote-text">LOADING...</div>
+                        <div id="quote-date">---</div>
+                    </div>
+                    <hr id="quote-divider">
+                    <div class="schedule-section-title">NOTES</div>
+                    <div id="notes-in-quote"><span class="empty-msg">LOADING...</span></div>
+                </div>
             </div>
-        </div>
 
-    </div>
-</div>
+            <!-- PANEL 5: SETTINGS -->
+            <div id="rp-settings" class="rp">
+                <div class="panel-title">// SETTINGS</div>
+                <div class="rp-inner">
+
+                    <div class="setting-section">
+                        <div class="setting-label">INTERFACE THEME</div>
+                        <div class="setting-row">
+                            <span>Terminal (Dark)</span>
+                            <button class="theme-btn active-theme" id="btn-theme-terminal" onclick="setTheme('terminal')">ACTIVE</button>
+                        </div>
+                        <div class="setting-row">
+                            <span>Cute &amp; Feminine</span>
+                            <button class="theme-btn" id="btn-theme-cute" onclick="setTheme('cute')">SELECT</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-section">
+                        <div class="setting-label">SLIDESHOW SPEED</div>
+                        <div class="setting-row">
+                            <span>Interval (seconds)</span>
+                            <input type="text" id="slideshow-interval" value="5" maxlength="3" style="float:right;width:50px;background:var(--input-bg);color:var(--fg);border:1px solid var(--border);padding:4px;text-align:center;font-family:var(--font);font-size:11px;outline:none;" onchange="updateSlideshowInterval()">
+                        </div>
+                    </div>
+
+                    <div class="setting-section">
+                        <div class="setting-label">DATA</div>
+                        <button class="danger-btn" onclick="clearChatHistory()">CLEAR CHAT HISTORY</button>
+                    </div>
+
+                    <div class="setting-section">
+                        <div class="setting-label">SYSTEM INFO</div>
+                        <div class="setting-row"><span>Version</span><span style="float:right;color:var(--fg2)">v3.0</span></div>
+                        <div class="setting-row"><span>Photos</span><span style="float:right;color:var(--fg2)" id="setting-photo-count">-</span></div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /active-panel -->
+
+        <!-- NAVBAR -->
+        <div id="navbar">
+            <button class="nb-btn active" onclick="switchPanel('clock', this)">
+                <span class="nb-icon">🕐</span>CLOCK
+            </button>
+            <button class="nb-btn" onclick="switchPanel('photo', this)">
+                <span class="nb-icon">🖼</span>PHOTO
+            </button>
+            <button class="nb-btn" onclick="switchPanel('timer', this)">
+                <span class="nb-icon">⏱</span>TIMER
+            </button>
+            <button class="nb-btn" onclick="switchPanel('quote', this)">
+                <span class="nb-icon">✨</span>QUOTE
+            </button>
+            <button class="nb-btn" onclick="switchPanel('settings', this)">
+                <span class="nb-icon">⚙</span>SETTINGS
+            </button>
+        </div>
+    </div><!-- /col-right -->
+
+</div><!-- /grid -->
 
 
 <script>
-// ── CLOCK ──────────────────────────────────────────────────
+/* ══════════════════════════════════════
+   THEME
+   ══════════════════════════════════════ */
+var currentTheme = "terminal";
+function setTheme(t) {
+    currentTheme = t;
+    document.body.className = "theme-" + t;
+    document.getElementById("btn-theme-terminal").className = "theme-btn" + (t === "terminal" ? " active-theme" : "");
+    document.getElementById("btn-theme-cute").className     = "theme-btn" + (t === "cute"     ? " active-theme" : "");
+    document.getElementById("btn-theme-terminal").innerHTML = t === "terminal" ? "ACTIVE" : "SELECT";
+    document.getElementById("btn-theme-cute").innerHTML     = t === "cute"     ? "ACTIVE" : "SELECT";
+    loadQuote(); // refresh quote for new theme
+}
+
+/* ══════════════════════════════════════
+   PANEL SWITCH
+   ══════════════════════════════════════ */
+function switchPanel(name, btn) {
+    var panels = document.querySelectorAll ? document.querySelectorAll(".rp") : [];
+    // fallback for old Safari
+    var ids = ["rp-clock","rp-photo","rp-timer","rp-quote","rp-settings"];
+    for (var i = 0; i < ids.length; i++) {
+        document.getElementById(ids[i]).className = "rp";
+    }
+    document.getElementById("rp-" + name).className = "rp active";
+    var btns = document.getElementById("navbar").childNodes;
+    for (var j = 0; j < btns.length; j++) {
+        if (btns[j].className) btns[j].className = btns[j].className.replace(" active","");
+    }
+    if (btn) btn.className = btn.className + " active";
+    if (name === "photo") loadPhotos();
+    if (name === "settings") document.getElementById("setting-photo-count").innerHTML = "" + photoList.length;
+}
+
+/* ══════════════════════════════════════
+   CLOCK
+   ══════════════════════════════════════ */
+var DAYS   = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+var MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+
 function updateClock() {
     var d = new Date();
     var h = d.getHours(); var m = d.getMinutes(); var s = d.getSeconds();
-    h = h < 10 ? "0"+h : ""+h;
-    m = m < 10 ? "0"+m : ""+m;
-    s = s < 10 ? "0"+s : ""+s;
-    document.getElementById("clock").innerHTML = h+":"+m+":"+s;
+    var hh = h < 10 ? "0"+h : ""+h;
+    var mm = m < 10 ? "0"+m : ""+m;
+    var ss = s < 10 ? "0"+s : ""+s;
+    var timeStr = hh + ":" + mm + ":" + ss;
+    document.getElementById("header-clock").innerHTML = timeStr;
+    document.getElementById("big-clock").innerHTML    = hh + ":" + mm + ":" + ss;
+    document.getElementById("big-date").innerHTML     = DAYS[d.getDay()] + "  " + d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear();
 }
 setInterval(updateClock, 1000);
 updateClock();
 
-// ── CHAT ───────────────────────────────────────────────────
+/* ══════════════════════════════════════
+   CHAT
+   ══════════════════════════════════════ */
 function sendMessage() {
-    var input = document.getElementById("user-input");
+    var input   = document.getElementById("user-input");
     var display = document.getElementById("chat-display");
-    var msg = input.value;
+    var msg     = input.value;
     if (!msg) return;
+
+    // handle timer command locally
+    var lower = msg.toLowerCase();
+    if (lower.indexOf("timer") > -1) {
+        var numMatch = lower.match(/(\d+)/);
+        if (numMatch) {
+            timerSetMinutes(parseInt(numMatch[1]));
+            display.innerText += "\n> " + msg;
+            display.innerText += "\nEVE: TIMER SET TO " + numMatch[1] + " MINUTES. SWITCHING TO TIMER PANEL.";
+            display.scrollTop = display.scrollHeight;
+            input.value = "";
+            switchPanel("timer", document.getElementById("navbar").children[2]);
+            return;
+        }
+    }
 
     display.innerText += "\n> " + msg;
     input.value = "";
@@ -333,16 +732,15 @@ function sendMessage() {
                 try {
                     var data = JSON.parse(xhr.responseText);
                     display.innerText += "\n" + data.reply;
-                    var lower = msg.toLowerCase();
-                    if (lower.indexOf("jadwal") > -1 || lower.indexOf("pasang") > -1 ||
-                        lower.indexOf("hapus") > -1 || lower.indexOf("reset") > -1 ||
-                        lower.indexOf("note") > -1 || lower.indexOf("catat") > -1 ||
-                        lower.indexOf("status") > -1 || lower.indexOf("dashboard") > -1) {
-                        loadDashboard();
+                    if (lower.indexOf("jadwal")   > -1 || lower.indexOf("pasang")    > -1 ||
+                        lower.indexOf("tambah")   > -1 || lower.indexOf("hapus")     > -1 ||
+                        lower.indexOf("reset")    > -1 || lower.indexOf("note")      > -1 ||
+                        lower.indexOf("catat")    > -1 || lower.indexOf("countdown") > -1 ||
+                        lower.indexOf("event")    > -1 || lower.indexOf("dashboard") > -1) {
+                        loadSchedule();
+                        loadQuote();
                     }
-                } catch(e) {
-                    display.innerText += "\nEVE: ERROR PARSING DATA.";
-                }
+                } catch(e) { display.innerText += "\nEVE: ERROR PARSING DATA."; }
             } else {
                 display.innerText += "\nEVE: SERVER ERROR " + xhr.status;
             }
@@ -353,86 +751,141 @@ function sendMessage() {
         display.innerText += "\nEVE: NETWORK ERROR.";
         display.scrollTop = display.scrollHeight;
     };
-    xhr.send("message=" + encodeURIComponent(msg));
+    xhr.send("message=" + encodeURIComponent(msg) + "&theme=" + encodeURIComponent(currentTheme));
 }
-
 document.getElementById("user-input").onkeydown = function(e) {
-    var key = e.keyCode || e.which;
-    if (key === 13) sendMessage();
+    if ((e.keyCode || e.which) === 13) sendMessage();
 };
 document.getElementById("send-btn").onclick = sendMessage;
 
-// ── DASHBOARD (jadwal + notes) ─────────────────────────────
-function loadDashboard() {
+// Load chat history on start
+function loadHistory() {
     var xhr = new XMLHttpRequest();
-    xhr.open("POST", "/eve", true);
-    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhr.open("GET", "/get-history", true);
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4 && xhr.status === 200) {
             try {
                 var data = JSON.parse(xhr.responseText);
-                parseDashboard(data.reply);
+                var hist = data.history || [];
+                if (hist.length > 0) {
+                    var display = document.getElementById("chat-display");
+                    var last = hist.slice(-20);
+                    for (var i = 0; i < last.length; i++) {
+                        display.innerText += "\n> " + last[i].user + "\n" + last[i].eve;
+                    }
+                    display.scrollTop = display.scrollHeight;
+                }
             } catch(e) {}
         }
     };
-    xhr.send("message=dashboard");
+    xhr.send();
 }
 
-function parseDashboard(reply) {
-    // ── JADWAL ──
-    var jadwalBody = document.getElementById("jadwal-body");
-    var lines = reply.split("\n");
-    var items = [];
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i];
-        if (line.indexOf("│") > -1 && line.indexOf(":") > -1) {
-            var parts = line.split("│");
-            if (parts.length >= 3) {
-                var t = parts[1].replace(/\s/g, "");
-                var task = parts[2].replace(/^\s+|\s+$/g, "");
-                if (t && t !== "JAM" && task && task !== "KEGIATAN") {
-                    items.push({time: t, task: task});
+function clearChatHistory() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/clear-history", true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            document.getElementById("chat-display").innerText = "EVE: CHAT HISTORY CLEARED.";
+        }
+    };
+    xhr.send();
+}
+
+/* ══════════════════════════════════════
+   SCHEDULE + EVENTS
+   ══════════════════════════════════════ */
+function loadSchedule() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/get-schedule", true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                renderJadwal(data.jadwal || []);
+                renderEvents(data.events || []);
+            } catch(e) {}
+        }
+    };
+    xhr.send();
+}
+
+function renderJadwal(items) {
+    var el = document.getElementById("jadwal-panel-list");
+    if (!items.length) { el.innerHTML = '<span class="empty-msg">JADWAL KOSONG</span>'; return; }
+    var html = "";
+    for (var i = 0; i < items.length; i++) {
+        html += '<div class="jadwal-row"><span class="jtime">' + items[i].time + '</span>' + items[i].task.toUpperCase() + '</div>';
+    }
+    el.innerHTML = html;
+}
+
+function renderEvents(events) {
+    var el = document.getElementById("events-panel-list");
+    if (!events.length) { el.innerHTML = '<span class="empty-msg">NO EVENTS</span>'; return; }
+    var html = "";
+    for (var i = 0; i < events.length; i++) {
+        var daysLeft = events[i].days_left;
+        var dLabel = daysLeft < 0 ? "PASSED" : (daysLeft === 0 ? "TODAY!" : daysLeft + " DAYS LEFT");
+        html += '<div class="countdown-row"><span class="cname">' + events[i].name.toUpperCase() + '</span><span class="cdays">' + events[i].date + '  —  ' + dLabel + '</span></div>';
+    }
+    el.innerHTML = html;
+}
+
+loadSchedule();
+setInterval(loadSchedule, 60000); // refresh every minute
+
+/* ══════════════════════════════════════
+   QUOTE OF THE DAY + NOTES
+   ══════════════════════════════════════ */
+function loadQuote() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/get-quote?theme=" + currentTheme, true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                document.getElementById("quote-text").innerHTML = "&ldquo;" + data.quote + "&rdquo;";
+                document.getElementById("quote-date").innerHTML = data.date;
+            } catch(e) {}
+        }
+    };
+    xhr.send();
+
+    // Also load notes into quote panel
+    var xhr2 = new XMLHttpRequest();
+    xhr2.open("GET", "/get-schedule", true);
+    xhr2.onreadystatechange = function() {
+        if (xhr2.readyState === 4 && xhr2.status === 200) {
+            try {
+                var data = JSON.parse(xhr2.responseText);
+                var notes = data.notes || [];
+                var el = document.getElementById("notes-in-quote");
+                if (!notes.length) { el.innerHTML = '<span class="empty-msg">NOTES KOSONG</span>'; return; }
+                var html = "";
+                for (var i = 0; i < notes.length; i++) {
+                    html += '<div class="qnote-item">&#8250; ' + notes[i] + '</div>';
                 }
-            }
+                el.innerHTML = html;
+            } catch(e) {}
         }
-    }
-    if (items.length === 0) {
-        jadwalBody.innerHTML = '<span class="empty-msg">JADWAL KOSONG</span>';
-    } else {
-        var html = "";
-        for (var j = 0; j < items.length; j++) {
-            html += '<div class="jadwal-item"><span class="time">' + items[j].time + '</span>' + items[j].task + '</div>';
-        }
-        jadwalBody.innerHTML = html;
-    }
-
-    // ── NOTES ──
-    var notesBody = document.getElementById("notes-body");
-    var sec = reply.split("[ARSIP NOTES]");
-    var notes = [];
-    if (sec.length > 1) {
-        var nl = sec[1].split("\n");
-        for (var k = 0; k < nl.length; k++) {
-            var n = nl[k].replace(/^\s*-\s*/, "").trim();
-            if (n && n !== "KOSONG") notes.push(n);
-        }
-    }
-    if (notes.length === 0) {
-        notesBody.innerHTML = '<span class="empty-msg">NOTES KOSONG</span>';
-    } else {
-        var nhtml = "";
-        for (var m = 0; m < notes.length; m++) {
-            nhtml += '<div class="notes-item">&#8250; ' + notes[m] + '</div>';
-        }
-        notesBody.innerHTML = nhtml;
-    }
+    };
+    xhr2.send();
 }
+loadQuote();
 
-loadDashboard();
-
-// ── PHOTOS ─────────────────────────────────────────────────
-var photoList = [];
+/* ══════════════════════════════════════
+   PHOTOS + FADE SLIDESHOW
+   ══════════════════════════════════════ */
+var photoList  = [];
 var photoIndex = 0;
+var photoLayer = "a"; // which layer is visible
+var slideshowMs = 5000;
+
+function updateSlideshowInterval() {
+    var val = parseInt(document.getElementById("slideshow-interval").value);
+    if (val >= 1) slideshowMs = val * 1000;
+}
 
 function loadPhotos() {
     var xhr = new XMLHttpRequest();
@@ -444,45 +897,61 @@ function loadPhotos() {
                 photoList = data.photos || [];
                 if (photoList.length > 0) {
                     if (photoIndex >= photoList.length) photoIndex = 0;
-                    showPhoto(photoIndex);
+                    showPhoto(photoIndex, false);
                 } else {
-                    document.getElementById("photo-img").src = "";
                     document.getElementById("photo-caption").innerHTML = "NO PHOTOS";
                 }
+                document.getElementById("setting-photo-count").innerHTML = "" + photoList.length;
             } catch(e) {}
         }
     };
     xhr.send();
 }
 
-function showPhoto(idx) {
-    if (photoList.length === 0) return;
-    var img = document.getElementById("photo-img");
+function showPhoto(idx, fade) {
+    if (!photoList.length) return;
+    var imgA = document.getElementById("photo-img-a").children[0];
+    var imgB = document.getElementById("photo-img-b").children[0];
+    var layerA = document.getElementById("photo-img-a");
+    var layerB = document.getElementById("photo-img-b");
     var cap = document.getElementById("photo-caption");
-    img.src = photoList[idx];
     var parts = photoList[idx].split("/");
     cap.innerHTML = (idx+1) + "/" + photoList.length + "  " + parts[parts.length-1].toUpperCase();
+
+    if (!fade) {
+        imgA.src = photoList[idx];
+        layerA.style.opacity = "1";
+        layerB.style.opacity = "0";
+        photoLayer = "a";
+        return;
+    }
+    // Fade: load into hidden layer, then cross-fade
+    if (photoLayer === "a") {
+        imgB.src = photoList[idx];
+        layerB.style.opacity = "1";
+        layerA.style.opacity = "0";
+        photoLayer = "b";
+    } else {
+        imgA.src = photoList[idx];
+        layerA.style.opacity = "1";
+        layerB.style.opacity = "0";
+        photoLayer = "a";
+    }
 }
 
 function nextPhoto() {
-    if (photoList.length === 0) return;
+    if (!photoList.length) return;
     photoIndex = (photoIndex + 1) % photoList.length;
-    showPhoto(photoIndex);
-}
-
-function prevPhoto() {
-    if (photoList.length === 0) return;
-    photoIndex = (photoIndex - 1 + photoList.length) % photoList.length;
-    showPhoto(photoIndex);
+    showPhoto(photoIndex, true);
 }
 
 function deletePhoto() {
-    if (photoList.length === 0) return;
+    if (!photoList.length) return;
     var pwd = prompt("PASSWORD:");
     if (!pwd) return;
-    var url = photoList[photoIndex];
+    var url   = photoList[photoIndex];
     var parts = url.split("/");
-    var filename = parts[parts.length - 1];
+    var fname = parts[parts.length - 1];
     var xhr = new XMLHttpRequest();
     xhr.open("POST", "/delete-photo", true);
     xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -493,35 +962,97 @@ function deletePhoto() {
                 if (data.success) {
                     photoList.splice(photoIndex, 1);
                     if (photoIndex >= photoList.length) photoIndex = 0;
-                    if (photoList.length > 0) {
-                        showPhoto(photoIndex);
-                    } else {
-                        document.getElementById("photo-img").src = "";
+                    if (photoList.length > 0) showPhoto(photoIndex, false);
+                    else {
+                        document.getElementById("photo-img-a").children[0].src = "";
                         document.getElementById("photo-caption").innerHTML = "NO PHOTOS";
                     }
-                } else {
-                    alert(data.reply);
-                }
+                } else { alert(data.reply); }
             } catch(e) {}
         }
     };
-    xhr.send("password=" + encodeURIComponent(pwd) + "&filename=" + encodeURIComponent(filename));
+    xhr.send("password=" + encodeURIComponent(pwd) + "&filename=" + encodeURIComponent(fname));
 }
 
 loadPhotos();
-
-// Auto-slideshow every 5 seconds
+// Slideshow tick
 setInterval(function() {
-    if (photoList.length > 1) {
-        photoIndex = (photoIndex + 1) % photoList.length;
-        showPhoto(photoIndex);
+    if (photoList.length > 1) nextPhoto();
+}, slideshowMs);
+// Refresh photo list every 30s
+setInterval(loadPhotos, 30000);
+
+/* ══════════════════════════════════════
+   TIMER
+   ══════════════════════════════════════ */
+var timerTotal   = 25 * 60; // seconds
+var timerLeft    = timerTotal;
+var timerRunning = false;
+var timerInterval = null;
+
+function timerSetMinutes(min) {
+    timerReset();
+    timerTotal = min * 60;
+    timerLeft  = timerTotal;
+    renderTimer();
+    document.getElementById("timer-min-input").value = "" + min;
+    document.getElementById("timer-label").innerHTML = min + " MIN TIMER — READY";
+}
+
+function timerSet() {
+    var val = parseInt(document.getElementById("timer-min-input").value);
+    if (val > 0) timerSetMinutes(val);
+}
+
+function timerStartStop() {
+    if (timerRunning) {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        document.getElementById("timer-start-btn").innerHTML = "START";
+        document.getElementById("timer-label").innerHTML = "PAUSED";
+    } else {
+        if (timerLeft <= 0) { timerLeft = timerTotal; }
+        timerRunning = true;
+        document.getElementById("timer-start-btn").innerHTML = "PAUSE";
+        timerInterval = setInterval(function() {
+            timerLeft -= 1;
+            renderTimer();
+            if (timerLeft <= 0) {
+                clearInterval(timerInterval);
+                timerRunning = false;
+                document.getElementById("timer-start-btn").innerHTML = "START";
+                document.getElementById("timer-label").innerHTML = "TIME'S UP!";
+                document.getElementById("timer-display").innerHTML = "00:00";
+            }
+        }, 1000);
     }
-}, 5000);
+}
 
-// Auto-refresh photo list from server every 30s
-setInterval(function() {
-    loadPhotos();
-}, 30000);
+function timerReset() {
+    clearInterval(timerInterval);
+    timerRunning = false;
+    timerLeft    = timerTotal;
+    document.getElementById("timer-start-btn").innerHTML = "START";
+    document.getElementById("timer-label").innerHTML = "READY";
+    renderTimer();
+}
+
+function renderTimer() {
+    var m = Math.floor(timerLeft / 60);
+    var s = timerLeft % 60;
+    var mm = m < 10 ? "0"+m : ""+m;
+    var ss = s < 10 ? "0"+s : ""+s;
+    document.getElementById("timer-display").innerHTML = mm + ":" + ss;
+    if (timerRunning) {
+        var pct = Math.floor((timerLeft / timerTotal) * 100);
+        document.getElementById("timer-label").innerHTML = pct + "% REMAINING";
+    }
+}
+
+renderTimer();
+
+// Load history on start
+loadHistory();
 </script>
 
 </body>
