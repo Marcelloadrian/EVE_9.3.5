@@ -5,484 +5,389 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>EVE SYSTEM</title>
 <style>
-/* ══════════════════════════════════════
-   THEME VARIABLES
-   ══════════════════════════════════════ */
+/* ══ THEMES ══════════════════════════════════════════ */
 body.theme-terminal {
-    --bg:        #000000;
-    --bg2:       #0a0a0a;
-    --fg:        #00ff00;
-    --fg2:       #00aa00;
-    --fg3:       #005500;
-    --accent:    #00ff00;
-    --accent2:   #003300;
-    --red:       #ff4444;
-    --border:    #00ff00;
-    --border2:   #003300;
-    --title-bg:  #00ff00;
-    --title-fg:  #000000;
-    --nav-bg:    #000000;
-    --nav-act:   #00ff00;
-    --nav-act-fg:#000000;
-    --input-bg:  #000000;
-    --radius:    0px;
-    --font:      'Courier New', Courier, monospace;
-    --font-size: 12px;
+    --bg:#000; --bg2:#0a0a0a; --bg3:#111;
+    --fg:#00ff00; --fg2:#00aa00; --fg3:#004400;
+    --accent:#00ff00; --accent2:#003300;
+    --red:#ff4444; --border:#00ff00; --border2:#003300;
+    --title-bg:#00ff00; --title-fg:#000;
+    --nav-bg:#000; --nav-act:#00ff00; --nav-act-fg:#000;
+    --input-bg:#000; --radius:0px; --sep:#00ff00;
+    --font:'Courier New',Courier,monospace; --font-size:12px;
+    --msg-me:#003300; --msg-other:#001100;
 }
 body.theme-cute {
-    --bg:        #fff0f5;
-    --bg2:       #ffe4ef;
-    --fg:        #d63384;
-    --fg2:       #e91e8c;
-    --fg3:       #f8bbd9;
-    --accent:    #ff69b4;
-    --accent2:   #ffe0ef;
-    --red:       #e53935;
-    --border:    #f48fb1;
-    --border2:   #fce4ec;
-    --title-bg:  #ff69b4;
-    --title-fg:  #ffffff;
-    --nav-bg:    #fce4ec;
-    --nav-act:   #ff69b4;
-    --nav-act-fg:#ffffff;
-    --input-bg:  #ffffff;
-    --radius:    12px;
-    --font:      Georgia, 'Times New Roman', serif;
-    --font-size: 13px;
+    --bg:#fff0f5; --bg2:#ffe4ef; --bg3:#fce4ec;
+    --fg:#d63384; --fg2:#e91e8c; --fg3:#f8bbd9;
+    --accent:#ff69b4; --accent2:#ffe0ef;
+    --red:#e53935; --border:#f48fb1; --border2:#fce4ec;
+    --title-bg:#ff69b4; --title-fg:#fff;
+    --nav-bg:#fce4ec; --nav-act:#ff69b4; --nav-act-fg:#fff;
+    --input-bg:#fff; --radius:10px; --sep:#ff69b4;
+    --font:Georgia,'Times New Roman',serif; --font-size:13px;
+    --msg-me:#fce4ec; --msg-other:#fff0f5;
 }
 
-/* ══════════════════════════════════════
-   RESET & BASE
-   ══════════════════════════════════════ */
-* { -webkit-box-sizing: border-box; box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-    height: 100%; overflow: hidden;
-    background: var(--bg);
-    color: var(--fg);
-    font-family: var(--font);
-    font-size: var(--font-size);
-    -webkit-transition: background 0.4s, color 0.4s;
-    transition: background 0.4s, color 0.4s;
-}
+/* ══ BASE ════════════════════════════════════════════ */
+* { -webkit-box-sizing:border-box; box-sizing:border-box; margin:0; padding:0; }
+html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
+            font-family:var(--font); font-size:var(--font-size);
+            -webkit-transition:background .4s,color .4s; transition:background .4s,color .4s; }
 
-/* ══════════════════════════════════════
-   HEADER
-   ══════════════════════════════════════ */
-#header {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: 32px;
-    line-height: 32px;
-    border-bottom: 1px solid var(--border);
-    padding: 0 12px;
-    background: var(--bg);
-    z-index: 10;
-    overflow: hidden;
-    letter-spacing: 3px;
-    font-size: 11px;
-}
-#header .htitle { float: left; }
-#header .hright { float: right; }
-#header:after { content: ""; display: table; clear: both; }
+/* ══ HEADER ══════════════════════════════════════════ */
+#header { position:fixed; top:0; left:0; right:0; height:32px; line-height:32px;
+          border-bottom:2px solid var(--sep); padding:0 12px; background:var(--bg);
+          z-index:10; overflow:hidden; letter-spacing:3px; font-size:11px; }
+#header .htitle { float:left; }
+#header .hright { float:right; font-size:11px; }
+#header:after { content:""; display:table; clear:both; }
 
-/* ══════════════════════════════════════
-   MAIN GRID
-   ══════════════════════════════════════ */
-#grid {
-    position: fixed;
-    top: 32px; left: 0; right: 0; bottom: 0;
-}
+/* ══ GRID ════════════════════════════════════════════ */
+#grid { position:fixed; top:32px; left:0; right:0; bottom:0; }
 
-/* LEFT: terminal, full height */
-#col-left {
-    position: absolute;
-    top: 0; left: 0; bottom: 0;
-    width: 52%;
-    border-right: 2px solid var(--accent);
-}
+/* LEFT col */
+#col-left { position:absolute; top:0; left:0; bottom:0; width:52%;
+            border-right:3px solid var(--sep); }
 
-/* RIGHT: active panel + navbar */
-#col-right {
-    position: absolute;
-    top: 0; left: 52%; right: 0; bottom: 0;
-}
+/* Separator line between toggle bar top and content below */
+#col-left:after { content:""; display:block; }
 
-/* ══════════════════════════════════════
-   TERMINAL (LEFT)
-   ══════════════════════════════════════ */
-#chat-panel {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    bottom: 46px;
+/* Exec box label */
+#eve-box-label {
+    position:absolute; top:0; left:0; right:0; height:30px;
+    display:none; /* shown via terminal-toggle instead */
 }
-.panel-title {
-    height: 24px;
-    line-height: 24px;
-    background: var(--title-bg);
-    color: var(--title-fg);
-    padding: 0 10px;
-    font-size: 10px;
-    letter-spacing: 3px;
-    font-weight: bold;
-    border-radius: var(--radius) var(--radius) 0 0;
-}
-#chat-display {
-    position: absolute;
-    top: 24px; left: 0; right: 0; bottom: 0;
-    overflow-y: scroll;
-    padding: 8px 10px;
-    white-space: pre-wrap;
-    font-size: 12px;
-    line-height: 1.65;
-    word-break: break-word;
-    background: var(--bg);
-    color: var(--fg);
-}
+/* Strong separator above input row */
 #chat-input-row {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 46px;
-    border-top: 1px solid var(--border);
-    overflow: hidden;
-    background: var(--bg);
+    position:absolute; bottom:0; left:0; right:0; height:46px;
+    border-top:2px solid var(--border); overflow:hidden; background:var(--bg);
+}
+
+/* RIGHT col */
+#col-right { position:absolute; top:0; left:52%; right:0; bottom:0; }
+
+/* ══ LEFT: TERMINAL TOGGLE ═══════════════════════════ */
+#terminal-toggle {
+    position:absolute; top:0; left:0; right:0; height:30px;
+    border-bottom:1px solid var(--border2); overflow:hidden; background:var(--bg2);
+}
+#terminal-toggle button {
+    float:left; width:50%; height:30px;
+    background:transparent; color:var(--fg2);
+    border:none; border-right:1px solid var(--border2);
+    cursor:pointer; font-family:var(--font); font-size:10px;
+    letter-spacing:2px; font-weight:bold;
+    -webkit-transition:background .2s,color .2s; transition:background .2s,color .2s;
+}
+#terminal-toggle button.active { background:var(--title-bg); color:var(--title-fg); }
+#terminal-toggle button:last-child { border-right:none; }
+#terminal-toggle:after { content:""; display:table; clear:both; }
+
+/* ══ LEFT: EVE CHAT PANEL ════════════════════════════ */
+#eve-panel { position:absolute; top:30px; left:0; right:0; bottom:46px; display:block; }
+#chat-display {
+    position:absolute; top:0; left:0; right:0; bottom:0;
+    overflow-y:scroll; padding:8px 10px;
+    white-space:pre-wrap; font-size:12px; line-height:1.65;
+    word-break:break-word; background:var(--bg); color:var(--fg);
 }
 #user-input {
-    float: left; width: 76%; height: 46px;
-    background: var(--input-bg);
-    color: var(--fg);
-    border: none;
-    border-right: 1px solid var(--border);
-    padding: 0 10px;
-    outline: none;
-    font-family: var(--font);
-    font-size: 12px;
+    float:left; width:76%; height:46px; background:var(--input-bg); color:var(--fg);
+    border:none; border-right:1px solid var(--border);
+    padding:0 10px; outline:none; font-family:var(--font); font-size:12px;
 }
 #send-btn {
-    float: left; width: 24%; height: 46px;
-    background: var(--accent);
-    color: var(--title-fg);
-    border: none; cursor: pointer;
-    font-family: var(--font);
-    font-size: 11px; font-weight: bold;
-    letter-spacing: 2px;
+    float:left; width:24%; height:46px; background:var(--accent); color:var(--title-fg);
+    border:none; cursor:pointer; font-family:var(--font); font-size:11px;
+    font-weight:bold; letter-spacing:2px;
 }
-#chat-input-row:after { content: ""; display: table; clear: both; }
+#chat-input-row:after { content:""; display:table; clear:both; }
 
-/* ══════════════════════════════════════
-   RIGHT PANELS
-   ══════════════════════════════════════ */
-#active-panel {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    bottom: 52px;
-    overflow: hidden;
+/* ══ LEFT: PEOPLE CHAT PANEL ════════════════════════ */
+#people-panel { position:absolute; top:30px; left:0; right:0; bottom:0; display:none; }
+
+/* Auth screen */
+#people-auth {
+    position:absolute; top:0; left:0; right:0; bottom:0;
+    overflow-y:scroll; padding:14px;
 }
-/* individual panels, all absolute fill */
-.rp {
-    display: none;
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
+#people-auth h3 { font-size:10px; letter-spacing:3px; margin-bottom:12px; color:var(--fg2); }
+.auth-input {
+    display:block; width:100%; margin-bottom:8px;
+    background:var(--input-bg); color:var(--fg);
+    border:1px solid var(--border); padding:8px;
+    font-family:var(--font); font-size:11px; outline:none;
+    border-radius:var(--radius);
 }
-.rp.active { display: block; }
-.rp-inner {
-    position: absolute;
-    top: 24px; left: 0; right: 0; bottom: 0;
-    overflow-y: scroll;
-    padding: 10px;
-    background: var(--bg);
+.auth-btn {
+    display:block; width:100%; padding:9px;
+    background:var(--accent); color:var(--title-fg);
+    border:none; cursor:pointer; font-family:var(--font);
+    font-size:11px; letter-spacing:2px; font-weight:bold;
+    margin-bottom:6px; border-radius:var(--radius);
+}
+.auth-toggle { font-size:10px; color:var(--fg2); cursor:pointer;
+               letter-spacing:1px; text-align:center; padding:4px; }
+#auth-status { font-size:10px; color:var(--red); margin-bottom:6px; min-height:16px; }
+
+/* People main (after login) */
+#people-main {
+    position:absolute; top:0; left:0; right:0; bottom:0;
+    display:none;
+}
+#people-top {
+    position:absolute; top:0; left:0; right:0; height:30px;
+    background:var(--bg2); border-bottom:1px solid var(--border2);
+    overflow:hidden; line-height:30px;
+}
+#people-top-left { float:left; padding:0 8px; font-size:10px; letter-spacing:2px; color:var(--fg2); }
+#people-logout { float:right; padding:0 10px; font-size:10px; color:var(--red);
+                 cursor:pointer; letter-spacing:1px; border:none; background:transparent;
+                 font-family:var(--font); line-height:30px; }
+#people-top:after { content:""; display:table; clear:both; }
+
+/* Room tabs */
+#room-tabs { position:absolute; top:30px; left:0; right:0; height:30px;
+             overflow-x:scroll; overflow-y:hidden; white-space:nowrap;
+             border-bottom:1px solid var(--border2); background:var(--bg); }
+.room-tab {
+    display:inline-block; padding:0 12px; height:30px; line-height:30px;
+    font-size:10px; letter-spacing:1px; cursor:pointer; color:var(--fg2);
+    border-right:1px solid var(--border2);
+    -webkit-transition:background .2s; transition:background .2s;
+}
+.room-tab.active { background:var(--title-bg); color:var(--title-fg); }
+#room-tabs::-webkit-scrollbar { height:2px; }
+#room-tabs::-webkit-scrollbar-thumb { background:var(--fg3); }
+
+/* Messages area */
+#people-msgs {
+    position:absolute; top:60px; left:0; right:0; bottom:46px;
+    overflow-y:scroll; padding:8px;
+}
+/* dm-composer pushes room-tabs down */
+#dm-composer ~ #room-tabs { top:auto; }
+#people-main.dm-open #room-tabs { top:100px; }
+#people-main.dm-open #people-msgs { top:130px; }
+.pmsg { margin-bottom:6px; }
+.pmsg .pmsg-from { font-size:9px; letter-spacing:2px; color:var(--fg2); margin-bottom:2px; }
+.pmsg .pmsg-bubble {
+    display:inline-block; padding:5px 9px; max-width:85%;
+    font-size:11px; line-height:1.5; word-break:break-word;
+    border:1px solid var(--border2); border-radius:var(--radius);
+    background:var(--msg-other);
+}
+.pmsg.me .pmsg-from { text-align:right; }
+.pmsg.me .pmsg-bubble { background:var(--msg-me); float:right; }
+.pmsg:after { content:""; display:table; clear:both; }
+.pmsg .pmsg-ts { font-size:9px; color:var(--fg3); margin-left:6px; }
+
+/* People input */
+#people-input-row {
+    position:absolute; bottom:0; left:0; right:0; height:46px;
+    border-top:1px solid var(--border); overflow:hidden;
+}
+#people-input {
+    float:left; width:76%; height:46px; background:var(--input-bg); color:var(--fg);
+    border:none; border-right:1px solid var(--border);
+    padding:0 10px; outline:none; font-family:var(--font); font-size:12px;
+}
+#people-send-btn {
+    float:left; width:24%; height:46px; background:var(--accent); color:var(--title-fg);
+    border:none; cursor:pointer; font-family:var(--font); font-size:11px;
+    font-weight:bold; letter-spacing:1px;
+}
+#people-input-row:after { content:""; display:table; clear:both; }
+
+/* New DM button */
+#new-dm-btn {
+    display:inline-block; padding:0 10px; height:30px; line-height:30px;
+    font-size:10px; letter-spacing:1px; cursor:pointer; color:var(--accent);
+    border-right:1px solid var(--border2);
 }
 
-/* ══════════════════════════════════════
-   NAVBAR (bottom of right col)
-   ══════════════════════════════════════ */
-#navbar {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 52px;
-    background: var(--nav-bg);
-    border-top: 1px solid var(--border);
-    overflow: hidden;
-}
+/* ══ RIGHT PANELS ════════════════════════════════════ */
+#active-panel { position:absolute; top:0; left:0; right:0; bottom:52px; overflow:hidden; }
+.rp { display:none; position:absolute; top:0; left:0; right:0; bottom:0; }
+.rp.active { display:block; }
+.rp-inner { position:absolute; top:24px; left:0; right:0; bottom:0;
+            overflow-y:scroll; padding:10px; background:var(--bg); }
+.panel-title { height:24px; line-height:24px; background:var(--title-bg); color:var(--title-fg);
+               padding:0 10px; font-size:10px; letter-spacing:3px; font-weight:bold; }
+
+/* ══ NAVBAR ══════════════════════════════════════════ */
+#navbar { position:absolute; bottom:0; left:0; right:0; height:52px;
+          background:var(--nav-bg); border-top:2px solid var(--sep); overflow:hidden; }
 .nb-btn {
-    float: left;
-    width: 20%;
-    height: 52px;
-    background: transparent;
-    color: var(--fg2);
-    border: none;
-    border-right: 1px solid var(--border2);
-    cursor: pointer;
-    font-family: var(--font);
-    font-size: 8px;
-    letter-spacing: 1px;
-    padding: 6px 2px 4px 2px;
-    text-align: center;
-    -webkit-transition: background 0.2s, color 0.2s;
-    transition: background 0.2s, color 0.2s;
+    float:left; width:16.66%; height:52px; background:transparent; color:var(--fg2);
+    border:none; border-right:1px solid var(--border2); cursor:pointer;
+    font-family:var(--font); font-size:8px; letter-spacing:1px;
+    padding:6px 2px 4px; text-align:center;
+    -webkit-transition:background .2s,color .2s; transition:background .2s,color .2s;
 }
-.nb-btn .nb-icon { font-size: 16px; display: block; margin-bottom: 2px; }
-.nb-btn.active { background: var(--nav-act); color: var(--nav-act-fg); }
-.nb-btn:last-child { border-right: none; }
-#navbar:after { content: ""; display: table; clear: both; }
+.nb-btn .nb-icon { font-size:15px; display:block; margin-bottom:2px; }
+.nb-btn.active { background:var(--nav-act); color:var(--nav-act-fg); }
+.nb-btn:last-child { border-right:none; }
+#navbar:after { content:""; display:table; clear:both; }
 
-/* ══════════════════════════════════════
-   PANEL: CLOCK & SCHEDULE
-   ══════════════════════════════════════ */
-#big-clock {
-    text-align: center;
-    font-size: 42px;
-    letter-spacing: 4px;
-    padding: 12px 0 6px 0;
-    color: var(--fg);
-    font-weight: bold;
+/* ══ CLOCK PANEL ═════════════════════════════════════ */
+#big-clock { text-align:center; font-size:40px; letter-spacing:4px;
+             padding:12px 0 4px; color:var(--fg); font-weight:bold; }
+#big-date  { text-align:center; font-size:10px; letter-spacing:3px;
+             color:var(--fg2); margin-bottom:8px; }
+#greeting  { text-align:center; font-size:11px; letter-spacing:2px;
+             color:var(--accent); margin-bottom:14px; font-style:italic;
+             border-top:1px solid var(--border2); border-bottom:1px solid var(--border2);
+             padding:6px 10px; }
+/* ══ EVE GREETING BANNER ═════════════════════════════ */
+#eve-greeting-banner {
+    position:absolute; top:30px; left:0; right:0;
+    background:var(--accent2); border-bottom:2px solid var(--border);
+    padding:6px 10px; font-size:10px; letter-spacing:2px;
+    color:var(--fg); line-height:1.5; z-index:5;
+    display:none;
+    -webkit-animation: fadeInBanner .5s ease; animation: fadeInBanner .5s ease;
 }
-#big-date {
-    text-align: center;
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: var(--fg2);
-    margin-bottom: 12px;
+@-webkit-keyframes fadeInBanner { from{opacity:0;top:24px} to{opacity:1;top:30px} }
+@keyframes fadeInBanner          { from{opacity:0;top:24px} to{opacity:1;top:30px} }
+#eve-greeting-banner .egb-close {
+    float:right; cursor:pointer; color:var(--fg2); font-size:12px;
+    padding:0 2px; line-height:1; border:none; background:transparent;
+    font-family:var(--font);
 }
-.schedule-section-title {
-    font-size: 9px;
-    letter-spacing: 3px;
-    color: var(--fg2);
-    border-bottom: 1px solid var(--border2);
-    padding-bottom: 3px;
-    margin-bottom: 6px;
-    margin-top: 10px;
-}
-.jadwal-row {
-    padding: 4px 0;
-    border-bottom: 1px solid var(--border2);
-    font-size: 11px;
-    line-height: 1.5;
-    overflow: hidden;
-    white-space: nowrap;
-}
-.jadwal-row .jtime { color: var(--fg2); margin-right: 8px; }
-.countdown-row {
-    padding: 4px 0;
-    border-bottom: 1px solid var(--border2);
-    font-size: 11px;
-    line-height: 1.5;
-    overflow: hidden;
-}
-.countdown-row .cname { display: block; }
-.countdown-row .cdays { font-size: 10px; color: var(--fg2); }
-.empty-msg { color: var(--fg3); font-size: 10px; font-style: italic; }
+/* adjust eve-panel top when banner visible */
+#eve-panel.with-banner { top:56px; }
+.sec-title { font-size:9px; letter-spacing:3px; color:var(--fg2);
+             border-bottom:1px solid var(--border2); padding-bottom:3px; margin:10px 0 6px; }
+.jadwal-row { padding:4px 0; border-bottom:1px solid var(--border2);
+              font-size:11px; line-height:1.5; overflow:hidden; white-space:nowrap; }
+.jadwal-row .jtime { color:var(--fg2); margin-right:8px; }
+.countdown-row { padding:4px 0; border-bottom:1px solid var(--border2); font-size:11px; }
+.countdown-row .cname { display:block; }
+.countdown-row .cdays { font-size:10px; color:var(--fg2); }
+.empty-msg { color:var(--fg3); font-size:10px; font-style:italic; }
 
-/* ══════════════════════════════════════
-   PANEL: PHOTO
-   ══════════════════════════════════════ */
-#photo-wrap {
-    position: absolute;
-    top: 24px; left: 0; right: 0; bottom: 0;
+/* ══ PHOTO PANEL ═════════════════════════════════════ */
+#photo-wrap { position:absolute; top:24px; left:0; right:0; bottom:0; }
+#photo-img-wrap { position:absolute; top:0; left:0; right:0; bottom:56px;
+                  background:var(--bg2); overflow:hidden; text-align:center; }
+#photo-img-a,#photo-img-b { position:absolute; top:0; left:0; right:0; bottom:0;
+    -webkit-transition:opacity .8s ease; transition:opacity .8s ease; text-align:center; }
+#photo-img-a img,#photo-img-b img { max-width:100%; max-height:100%; display:block;
+    margin:0 auto; height:100%; width:100%; object-fit:cover; }
+#photo-img-b { opacity:0; }
+#photo-caption { position:absolute; bottom:56px; left:0; right:0; font-size:9px;
+                 color:var(--fg2); letter-spacing:2px; padding:3px 8px;
+                 background:var(--bg); height:20px; overflow:hidden; white-space:nowrap; }
+#photo-btns { position:absolute; bottom:0; left:0; right:0; height:36px;
+              border-top:1px solid var(--border2); overflow:hidden; }
+#photo-btns button,#photo-btns a {
+    float:left; width:50%; height:36px; background:var(--bg); color:var(--fg);
+    border:none; border-right:1px solid var(--border2); cursor:pointer;
+    font-family:var(--font); font-size:9px; letter-spacing:1px;
+    text-align:center; text-decoration:none; line-height:36px;
 }
-#photo-img-wrap {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    bottom: 56px;
-    background: var(--bg2);
-    overflow: hidden;
-    text-align: center;
-}
-/* fade transition */
-#photo-img-a, #photo-img-b {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    -webkit-transition: opacity 0.8s ease;
-    transition: opacity 0.8s ease;
-    text-align: center;
-}
-#photo-img-a img, #photo-img-b img {
-    max-width: 100%; max-height: 100%;
-    display: block; margin: 0 auto;
-    height: 100%; width: 100%;
-    object-fit: cover;
-}
-#photo-img-b { opacity: 0; }
-#photo-caption {
-    position: absolute;
-    bottom: 56px; left: 0; right: 0;
-    font-size: 9px; color: var(--fg2);
-    letter-spacing: 2px; padding: 3px 8px;
-    background: var(--bg);
-    height: 20px; overflow: hidden;
-    white-space: nowrap;
-}
-#photo-btns {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 36px;
-    border-top: 1px solid var(--border2);
-    overflow: hidden;
-}
-#photo-btns button, #photo-btns a {
-    float: left; width: 50%; height: 36px;
-    background: var(--bg); color: var(--fg);
-    border: none; border-right: 1px solid var(--border2);
-    cursor: pointer;
-    font-family: var(--font); font-size: 9px;
-    letter-spacing: 1px; text-align: center;
-    text-decoration: none; line-height: 36px;
-}
-#photo-btns .del-btn { color: var(--red); }
-#photo-btns a { border-right: none; }
-#photo-btns:after { content: ""; display: table; clear: both; }
+#photo-btns .del-btn { color:var(--red); }
+#photo-btns a { border-right:none; }
+#photo-btns:after { content:""; display:table; clear:both; }
 
-/* ══════════════════════════════════════
-   PANEL: TIMER
-   ══════════════════════════════════════ */
-#timer-display {
-    text-align: center;
-    font-size: 52px;
-    letter-spacing: 4px;
-    padding: 20px 0 8px 0;
-    color: var(--fg);
-    font-weight: bold;
-}
-#timer-label {
-    text-align: center;
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: var(--fg2);
-    margin-bottom: 16px;
-}
-#timer-btns { text-align: center; margin-bottom: 14px; }
-#timer-btns button {
-    background: var(--bg2);
-    color: var(--fg);
-    border: 1px solid var(--border);
-    padding: 8px 16px;
-    margin: 0 4px;
-    cursor: pointer;
-    font-family: var(--font);
-    font-size: 10px;
-    letter-spacing: 2px;
-    border-radius: var(--radius);
-}
-#timer-btns button.primary { background: var(--accent); color: var(--title-fg); }
-#timer-input-row {
-    text-align: center;
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: var(--fg2);
-    margin-top: 8px;
-}
-#timer-input-row input {
-    background: var(--input-bg);
-    color: var(--fg);
-    border: 1px solid var(--border);
-    padding: 6px 10px;
-    width: 60px;
-    text-align: center;
-    font-family: var(--font);
-    font-size: 12px;
-    outline: none;
-    margin: 0 4px;
-    border-radius: var(--radius);
-}
-#timer-input-row button {
-    background: var(--accent);
-    color: var(--title-fg);
-    border: none;
-    padding: 7px 12px;
-    cursor: pointer;
-    font-family: var(--font);
-    font-size: 10px;
-    letter-spacing: 2px;
-    border-radius: var(--radius);
-}
+/* ══ TIMER PANEL ═════════════════════════════════════ */
+#timer-display { text-align:center; font-size:52px; letter-spacing:4px;
+                 padding:20px 0 8px; color:var(--fg); font-weight:bold; }
+#timer-label   { text-align:center; font-size:10px; letter-spacing:3px;
+                 color:var(--fg2); margin-bottom:16px; }
+#timer-btns    { text-align:center; margin-bottom:14px; }
+#timer-btns button { background:var(--bg2); color:var(--fg); border:1px solid var(--border);
+    padding:8px 16px; margin:0 4px; cursor:pointer; font-family:var(--font);
+    font-size:10px; letter-spacing:2px; border-radius:var(--radius); }
+#timer-btns button.primary { background:var(--accent); color:var(--title-fg); }
+#timer-input-row { text-align:center; font-size:10px; letter-spacing:2px;
+                   color:var(--fg2); margin-top:8px; }
+#timer-input-row input { background:var(--input-bg); color:var(--fg);
+    border:1px solid var(--border); padding:6px 10px; width:60px;
+    text-align:center; font-family:var(--font); font-size:12px;
+    outline:none; margin:0 4px; border-radius:var(--radius); }
+#timer-input-row button { background:var(--accent); color:var(--title-fg); border:none;
+    padding:7px 12px; cursor:pointer; font-family:var(--font);
+    font-size:10px; letter-spacing:2px; border-radius:var(--radius); }
 
-/* ══════════════════════════════════════
-   PANEL: QUOTE
-   ══════════════════════════════════════ */
-#quote-wrap {
-    padding: 20px 14px;
-    text-align: center;
-}
-#quote-text {
-    font-size: 16px;
-    line-height: 1.7;
-    color: var(--fg);
-    margin-bottom: 16px;
-    font-style: italic;
-}
-#quote-date {
-    font-size: 9px;
-    letter-spacing: 3px;
-    color: var(--fg2);
-}
-#quote-divider {
-    border: none;
-    border-top: 1px solid var(--border2);
-    margin: 16px 0;
-}
-#notes-in-quote { text-align: left; }
-.qnote-item {
-    padding: 4px 0;
-    border-bottom: 1px solid var(--border2);
-    font-size: 11px;
-    color: var(--fg);
-    line-height: 1.5;
-}
+/* ══ QUOTE PANEL ═════════════════════════════════════ */
+#quote-wrap    { padding:20px 14px; text-align:center; }
+#quote-text    { font-size:15px; line-height:1.7; color:var(--fg);
+                 margin-bottom:14px; font-style:italic; }
+#quote-date    { font-size:9px; letter-spacing:3px; color:var(--fg2); }
+#quote-divider { border:none; border-top:1px solid var(--border2); margin:14px 0; }
+.qnote-item    { padding:4px 0; border-bottom:1px solid var(--border2);
+                 font-size:11px; color:var(--fg); line-height:1.5; }
 
-/* ══════════════════════════════════════
-   PANEL: SETTINGS
-   ══════════════════════════════════════ */
-.setting-section {
-    margin-bottom: 16px;
-}
-.setting-label {
-    font-size: 9px;
-    letter-spacing: 3px;
-    color: var(--fg2);
-    margin-bottom: 8px;
-    border-bottom: 1px solid var(--border2);
-    padding-bottom: 3px;
-}
-.setting-row {
-    padding: 6px 0;
-    border-bottom: 1px solid var(--border2);
-    font-size: 11px;
-    overflow: hidden;
-}
-.setting-row span { float: left; line-height: 28px; }
-.setting-row:after { content: ""; display: table; clear: both; }
-.theme-btn {
-    float: right;
-    background: var(--bg2);
-    color: var(--fg);
-    border: 1px solid var(--border);
-    padding: 5px 10px;
-    cursor: pointer;
-    font-family: var(--font);
-    font-size: 10px;
-    letter-spacing: 1px;
-    border-radius: var(--radius);
-}
-.theme-btn.active-theme { background: var(--accent); color: var(--title-fg); }
-.danger-btn {
-    display: block; width: 100%;
-    background: transparent;
-    color: var(--red);
-    border: 1px solid var(--red);
-    padding: 8px;
-    cursor: pointer;
-    font-family: var(--font);
-    font-size: 10px;
-    letter-spacing: 2px;
-    margin-top: 6px;
-    border-radius: var(--radius);
-}
+/* ══ SETTINGS PANEL ══════════════════════════════════ */
+.setting-section { margin-bottom:16px; }
+.setting-label   { font-size:9px; letter-spacing:3px; color:var(--fg2);
+                   margin-bottom:8px; border-bottom:1px solid var(--border2); padding-bottom:3px; }
+.setting-row     { padding:6px 0; border-bottom:1px solid var(--border2); font-size:11px; overflow:hidden; }
+.setting-row span { float:left; line-height:28px; }
+.setting-row:after { content:""; display:table; clear:both; }
+.theme-btn { float:right; background:var(--bg2); color:var(--fg);
+             border:1px solid var(--border); padding:5px 10px; cursor:pointer;
+             font-family:var(--font); font-size:10px; letter-spacing:1px;
+             border-radius:var(--radius); }
+.theme-btn.active-theme { background:var(--accent); color:var(--title-fg); }
+.danger-btn { display:block; width:100%; background:transparent; color:var(--red);
+              border:1px solid var(--red); padding:8px; cursor:pointer;
+              font-family:var(--font); font-size:10px; letter-spacing:2px;
+              margin-top:6px; border-radius:var(--radius); }
+.setting-input { float:right; width:60px; background:var(--input-bg); color:var(--fg);
+                 border:1px solid var(--border); padding:4px; text-align:center;
+                 font-family:var(--font); font-size:11px; outline:none;
+                 border-radius:var(--radius); }
 
-/* ══════════════════════════════════════
-   SCROLLBAR
-   ══════════════════════════════════════ */
-::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--fg3); }
+/* ══ INLINE DM COMPOSER ══════════════════════════════ */
+#dm-composer {
+    display:none; padding:8px; border-bottom:1px solid var(--border2);
+    background:var(--bg2);
+}
+#dm-composer input {
+    display:block; width:100%; margin-bottom:6px;
+    background:var(--input-bg); color:var(--fg);
+    border:1px solid var(--border); padding:7px 8px;
+    font-family:var(--font); font-size:11px; outline:none;
+}
+#dm-composer .dm-comp-btns { overflow:hidden; }
+#dm-composer .dm-comp-btns button {
+    float:left; width:50%; height:30px;
+    background:var(--bg3); color:var(--fg);
+    border:none; border-right:1px solid var(--border2);
+    cursor:pointer; font-family:var(--font); font-size:10px;
+    letter-spacing:1px;
+}
+#dm-composer .dm-comp-btns button:last-child { border-right:none; background:var(--accent); color:var(--title-fg); }
+#dm-composer .dm-comp-btns:after { content:""; display:table; clear:both; }
+/* ══ DELETE CONFIRM ══════════════════════════════════ */
+#photo-delete-confirm {
+    display:none; padding:8px; background:var(--bg3);
+    border-top:1px solid var(--border);
+}
+#photo-delete-confirm input {
+    display:block; width:100%; margin-bottom:6px;
+    background:var(--input-bg); color:var(--fg);
+    border:1px solid var(--border); padding:7px 8px;
+    font-family:var(--font); font-size:11px; outline:none;
+}
+#photo-delete-confirm .del-confirm-btns { overflow:hidden; }
+#photo-delete-confirm .del-confirm-btns button {
+    float:left; width:50%; height:30px;
+    background:var(--bg); color:var(--fg);
+    border:none; border-right:1px solid var(--border2);
+    cursor:pointer; font-family:var(--font); font-size:10px;
+    letter-spacing:1px;
+}
+#photo-delete-confirm .del-confirm-btns button.confirm-yes { color:var(--red); }
+#photo-delete-confirm .del-confirm-btns:after { content:""; display:table; clear:both; }
+#photo-delete-status { font-size:9px; color:var(--red); min-height:14px; margin-bottom:4px; letter-spacing:1px; }
+::-webkit-scrollbar { width:3px; height:3px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--fg3); }
 </style>
 </head>
 <body class="theme-terminal">
@@ -493,567 +398,768 @@ html, body {
     <span class="hright" id="header-clock">--:--:--</span>
 </div>
 
-<!-- GRID -->
 <div id="grid">
 
-    <!-- ═══ LEFT: TERMINAL ═══ -->
-    <div id="col-left">
-        <div id="chat-panel">
-            <div class="panel-title">// TERMINAL</div>
-            <div id="chat-display">EVE SYSTEM READY...
-TYPE A COMMAND OR SPEAK FREELY.
----------------------------------
-COMMANDS: jadwal / pasang / tambah event / note / catat / hapus / timer / dashboard
----------------------------------</div>
-        </div>
+<!-- ══════════ LEFT COLUMN ══════════ -->
+<div id="col-left">
+
+    <!-- Toggle: EVE / PEOPLE -->
+    <div id="terminal-toggle">
+        <button class="active" id="tab-eve"    onclick="switchTerminal('eve')">// EVE</button>
+        <button             id="tab-people" onclick="switchTerminal('people')">// PEOPLE</button>
+    </div>
+
+    <!-- EVE Dynamic Greeting Banner -->
+    <div id="eve-greeting-banner">
+        <button class="egb-close" onclick="closeEveGreeting()">✕</button>
+        <span id="eve-greeting-text">...</span>
+    </div>
+
+    <!-- EVE Chat -->
+    <div id="eve-panel">
+        <div id="chat-display">EVE SYSTEM READY...</div>
         <div id="chat-input-row">
             <input type="text" id="user-input" placeholder="COMMAND...">
             <button id="send-btn">EXEC</button>
         </div>
     </div>
 
-    <!-- ═══ RIGHT COL ═══ -->
-    <div id="col-right">
-        <div id="active-panel">
-
-            <!-- PANEL 1: CLOCK & SCHEDULE -->
-            <div id="rp-clock" class="rp active">
-                <div class="panel-title">// CLOCK &amp; SCHEDULE</div>
-                <div class="rp-inner">
-                    <div id="big-clock">--:--:--</div>
-                    <div id="big-date">---</div>
-                    <div class="schedule-section-title">JADWAL HARI INI</div>
-                    <div id="jadwal-panel-list"><span class="empty-msg">LOADING...</span></div>
-                    <div class="schedule-section-title">COUNTDOWN EVENTS</div>
-                    <div id="events-panel-list"><span class="empty-msg">LOADING...</span></div>
-                </div>
+    <!-- People Chat -->
+    <div id="people-panel">
+        <!-- Auth screen -->
+        <div id="people-auth">
+            <h3 id="auth-mode-title">// LOGIN</h3>
+            <div id="auth-status"></div>
+            <input class="auth-input" type="text"     id="auth-username" placeholder="USERNAME">
+            <input class="auth-input" type="password" id="auth-password" placeholder="PASSWORD">
+            <div id="auth-pin-wrap" style="display:none">
+                <input class="auth-input" type="password" id="auth-pin"      placeholder="MASTER PIN (from admin)">
             </div>
-
-            <!-- PANEL 2: PHOTO -->
-            <div id="rp-photo" class="rp">
-                <div class="panel-title">// PHOTO CAROUSEL</div>
-                <div id="photo-wrap">
-                    <div id="photo-img-wrap">
-                        <div id="photo-img-a"><img src="" alt=""></div>
-                        <div id="photo-img-b"><img src="" alt=""></div>
-                    </div>
-                    <div id="photo-caption">NO PHOTOS LOADED</div>
-                    <div id="photo-btns">
-                        <button class="del-btn" onclick="deletePhoto()">[ DELETE ]</button>
-                        <a href="/upload">[ + UPLOAD ]</a>
-                    </div>
-                </div>
+            <button class="auth-btn" id="auth-submit-btn" onclick="authSubmit()">LOGIN</button>
+            <div class="auth-toggle" id="auth-toggle-link" onclick="toggleAuthMode()">
+                Don't have an account? REGISTER
             </div>
-
-            <!-- PANEL 3: TIMER -->
-            <div id="rp-timer" class="rp">
-                <div class="panel-title">// TIMER</div>
-                <div class="rp-inner">
-                    <div id="timer-display">00:00</div>
-                    <div id="timer-label">IDLE</div>
-                    <div id="timer-btns">
-                        <button class="primary" id="timer-start-btn" onclick="timerStartStop()">START</button>
-                        <button onclick="timerReset()">RESET</button>
-                    </div>
-                    <div id="timer-input-row">
-                        SET:
-                        <input type="text" id="timer-min-input" value="25" maxlength="3"> MIN
-                        <button onclick="timerSet()">SET</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- PANEL 4: QUOTE + NOTES -->
-            <div id="rp-quote" class="rp">
-                <div class="panel-title">// QUOTE &amp; NOTES</div>
-                <div class="rp-inner">
-                    <div id="quote-wrap">
-                        <div id="quote-text">LOADING...</div>
-                        <div id="quote-date">---</div>
-                    </div>
-                    <hr id="quote-divider">
-                    <div class="schedule-section-title">NOTES</div>
-                    <div id="notes-in-quote"><span class="empty-msg">LOADING...</span></div>
-                </div>
-            </div>
-
-            <!-- PANEL 5: SETTINGS -->
-            <div id="rp-settings" class="rp">
-                <div class="panel-title">// SETTINGS</div>
-                <div class="rp-inner">
-
-                    <div class="setting-section">
-                        <div class="setting-label">INTERFACE THEME</div>
-                        <div class="setting-row">
-                            <span>Terminal (Dark)</span>
-                            <button class="theme-btn active-theme" id="btn-theme-terminal" onclick="setTheme('terminal')">ACTIVE</button>
-                        </div>
-                        <div class="setting-row">
-                            <span>Cute &amp; Feminine</span>
-                            <button class="theme-btn" id="btn-theme-cute" onclick="setTheme('cute')">SELECT</button>
-                        </div>
-                    </div>
-
-                    <div class="setting-section">
-                        <div class="setting-label">SLIDESHOW SPEED</div>
-                        <div class="setting-row">
-                            <span>Interval (seconds)</span>
-                            <input type="text" id="slideshow-interval" value="5" maxlength="3" style="float:right;width:50px;background:var(--input-bg);color:var(--fg);border:1px solid var(--border);padding:4px;text-align:center;font-family:var(--font);font-size:11px;outline:none;" onchange="updateSlideshowInterval()">
-                        </div>
-                    </div>
-
-                    <div class="setting-section">
-                        <div class="setting-label">DATA</div>
-                        <button class="danger-btn" onclick="clearChatHistory()">CLEAR CHAT HISTORY</button>
-                    </div>
-
-                    <div class="setting-section">
-                        <div class="setting-label">SYSTEM INFO</div>
-                        <div class="setting-row"><span>Version</span><span style="float:right;color:var(--fg2)">v3.0</span></div>
-                        <div class="setting-row"><span>Photos</span><span style="float:right;color:var(--fg2)" id="setting-photo-count">-</span></div>
-                    </div>
-                </div>
-            </div>
-
-        </div><!-- /active-panel -->
-
-        <!-- NAVBAR -->
-        <div id="navbar">
-            <button class="nb-btn active" onclick="switchPanel('clock', this)">
-                <span class="nb-icon">🕐</span>CLOCK
-            </button>
-            <button class="nb-btn" onclick="switchPanel('photo', this)">
-                <span class="nb-icon">🖼</span>PHOTO
-            </button>
-            <button class="nb-btn" onclick="switchPanel('timer', this)">
-                <span class="nb-icon">⏱</span>TIMER
-            </button>
-            <button class="nb-btn" onclick="switchPanel('quote', this)">
-                <span class="nb-icon">✨</span>QUOTE
-            </button>
-            <button class="nb-btn" onclick="switchPanel('settings', this)">
-                <span class="nb-icon">⚙</span>SETTINGS
-            </button>
         </div>
-    </div><!-- /col-right -->
+
+        <!-- People main -->
+        <div id="people-main">
+            <div id="people-top">
+                <span id="people-top-left">💬 <span id="logged-in-name">---</span></span>
+                <button id="people-logout" onclick="peopleLogout()">LOGOUT</button>
+            </div>
+            <!-- Inline DM Composer (replaces prompt()) -->
+            <div id="dm-composer">
+                <input type="text" id="dm-target-input" placeholder="TARGET USERNAME...">
+                <div class="dm-comp-btns">
+                    <button onclick="closeDMComposer()">CANCEL</button>
+                    <button onclick="confirmNewDM()">START DM ✉</button>
+                </div>
+            </div>
+            <div id="room-tabs">
+                <span class="room-tab active" id="tab-global" onclick="switchRoom('global')">🌐 GLOBAL</span>
+                <span id="new-dm-btn" onclick="openDMComposer()">+ DM</span>
+            </div>
+            <div id="people-msgs"></div>
+            <div id="people-input-row">
+                <input type="text" id="people-input" placeholder="MESSAGE...">
+                <button id="people-send-btn" onclick="peopleSend()">SEND</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════ RIGHT COLUMN ══════════ -->
+<div id="col-right">
+    <div id="active-panel">
+
+        <!-- CLOCK -->
+        <div id="rp-clock" class="rp active">
+            <div class="panel-title">// CLOCK &amp; SCHEDULE</div>
+            <div class="rp-inner" style="border-top:2px solid var(--sep);">
+                <div id="big-clock">--:--:--</div>
+                <div id="big-date">---</div>
+                <div id="greeting">---</div>
+                <div class="sec-title">JADWAL</div>
+                <div id="jadwal-panel-list"><span class="empty-msg">LOADING...</span></div>
+                <div class="sec-title">COUNTDOWN</div>
+                <div id="events-panel-list"><span class="empty-msg">LOADING...</span></div>
+            </div>
+        </div>
+
+        <!-- PHOTO -->
+        <div id="rp-photo" class="rp">
+            <div class="panel-title">// PHOTO CAROUSEL</div>
+            <div id="photo-wrap">
+                <div id="photo-img-wrap">
+                    <div id="photo-img-a"><img src="" alt=""></div>
+                    <div id="photo-img-b"><img src="" alt=""></div>
+                </div>
+                <div id="photo-caption">NO PHOTOS LOADED</div>
+                <div id="photo-btns">
+                    <button class="del-btn" onclick="showDeleteConfirm()">[ DELETE ]</button>
+                    <a href="/upload">[ + UPLOAD ]</a>
+                </div>
+                <div id="photo-delete-confirm">
+                    <div id="photo-delete-status"></div>
+                    <input type="password" id="photo-del-pwd" placeholder="PASSWORD TO CONFIRM DELETE">
+                    <div class="del-confirm-btns">
+                        <button onclick="cancelDeletePhoto()">CANCEL</button>
+                        <button class="confirm-yes" onclick="doDeletePhoto()">DELETE ✕</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TIMER -->
+        <div id="rp-timer" class="rp">
+            <div class="panel-title">// TIMER</div>
+            <div class="rp-inner">
+                <div id="timer-display">00:00</div>
+                <div id="timer-label">IDLE</div>
+                <div id="timer-btns">
+                    <button class="primary" id="timer-start-btn" onclick="timerStartStop()">START</button>
+                    <button onclick="timerReset()">RESET</button>
+                </div>
+                <div id="timer-input-row">
+                    SET: <input type="text" id="timer-min-input" value="25" maxlength="3"> MIN
+                    <button onclick="timerSet()">SET</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUOTE -->
+        <div id="rp-quote" class="rp">
+            <div class="panel-title">// QUOTE &amp; NOTES</div>
+            <div class="rp-inner">
+                <div id="quote-wrap">
+                    <div id="quote-text">LOADING...</div>
+                    <div id="quote-date">---</div>
+                </div>
+                <hr id="quote-divider">
+                <div class="sec-title">NOTES</div>
+                <div id="notes-in-quote"><span class="empty-msg">LOADING...</span></div>
+            </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div id="rp-settings" class="rp">
+            <div class="panel-title">// SETTINGS</div>
+            <div class="rp-inner">
+                <div class="setting-section">
+                    <div class="setting-label">THEME</div>
+                    <div class="setting-row">
+                        <span>Terminal (Dark)</span>
+                        <button class="theme-btn active-theme" id="btn-theme-terminal" onclick="setTheme('terminal')">ACTIVE</button>
+                    </div>
+                    <div class="setting-row">
+                        <span>Cute &amp; Feminine</span>
+                        <button class="theme-btn" id="btn-theme-cute" onclick="setTheme('cute')">SELECT</button>
+                    </div>
+                </div>
+                <div class="setting-section">
+                    <div class="setting-label">SLIDESHOW SPEED</div>
+                    <div class="setting-row">
+                        <span>Interval (seconds)</span>
+                        <input class="setting-input" type="text" id="slideshow-interval" value="5" maxlength="3" onchange="updateSlideshowInterval()">
+                    </div>
+                </div>
+                <div class="setting-section">
+                    <div class="setting-label">DATA</div>
+                    <button class="danger-btn" onclick="clearChatHistory()">CLEAR EVE HISTORY</button>
+                </div>
+                <div class="setting-section">
+                    <div class="setting-label">INFO</div>
+                    <div class="setting-row"><span>Version</span><span style="float:right;color:var(--fg2)">v3.0</span></div>
+                    <div class="setting-row"><span>Photos</span><span style="float:right;color:var(--fg2)" id="setting-photo-count">-</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAT PANEL (right side info / user list) -->
+        <div id="rp-chat" class="rp">
+            <div class="panel-title">// ONLINE USERS</div>
+            <div class="rp-inner">
+                <div class="sec-title">REGISTERED USERS</div>
+                <div id="user-list-panel"><span class="empty-msg">LOADING...</span></div>
+                <div class="sec-title" style="margin-top:16px">OPEN DM</div>
+                <div id="dm-list-panel"><span class="empty-msg">NO DMs YET</span></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- NAVBAR -->
+    <div id="navbar">
+        <button class="nb-btn active" onclick="switchPanel('clock',this)"><span class="nb-icon">🕐</span>CLOCK</button>
+        <button class="nb-btn"        onclick="switchPanel('photo',this)"><span class="nb-icon">🖼</span>PHOTO</button>
+        <button class="nb-btn"        onclick="switchPanel('timer',this)"><span class="nb-icon">⏱</span>TIMER</button>
+        <button class="nb-btn"        onclick="switchPanel('quote',this)"><span class="nb-icon">✨</span>QUOTE</button>
+        <button class="nb-btn"        onclick="switchPanel('chat',this)"><span class="nb-icon">💬</span>CHAT</button>
+        <button class="nb-btn"        onclick="switchPanel('settings',this)"><span class="nb-icon">⚙</span>SET</button>
+    </div>
+</div>
 
 </div><!-- /grid -->
 
-
 <script>
-/* ══════════════════════════════════════
-   THEME
-   ══════════════════════════════════════ */
+/* ══ THEME ══════════════════════════════════════════════════════ */
 var currentTheme = "terminal";
 function setTheme(t) {
     currentTheme = t;
     document.body.className = "theme-" + t;
-    document.getElementById("btn-theme-terminal").className = "theme-btn" + (t === "terminal" ? " active-theme" : "");
-    document.getElementById("btn-theme-cute").className     = "theme-btn" + (t === "cute"     ? " active-theme" : "");
-    document.getElementById("btn-theme-terminal").innerHTML = t === "terminal" ? "ACTIVE" : "SELECT";
-    document.getElementById("btn-theme-cute").innerHTML     = t === "cute"     ? "ACTIVE" : "SELECT";
-    loadQuote(); // refresh quote for new theme
+    document.getElementById("btn-theme-terminal").className = "theme-btn" + (t==="terminal" ? " active-theme" : "");
+    document.getElementById("btn-theme-cute").className     = "theme-btn" + (t==="cute"     ? " active-theme" : "");
+    document.getElementById("btn-theme-terminal").innerHTML = t==="terminal" ? "ACTIVE" : "SELECT";
+    document.getElementById("btn-theme-cute").innerHTML     = t==="cute"     ? "ACTIVE" : "SELECT";
+    loadQuote();
+    updateGreeting();
 }
 
-/* ══════════════════════════════════════
-   PANEL SWITCH
-   ══════════════════════════════════════ */
+/* ══ PANEL SWITCH ═══════════════════════════════════════════════ */
+var panelIds = ["rp-clock","rp-photo","rp-timer","rp-quote","rp-chat","rp-settings"];
 function switchPanel(name, btn) {
-    var panels = document.querySelectorAll ? document.querySelectorAll(".rp") : [];
-    // fallback for old Safari
-    var ids = ["rp-clock","rp-photo","rp-timer","rp-quote","rp-settings"];
-    for (var i = 0; i < ids.length; i++) {
-        document.getElementById(ids[i]).className = "rp";
-    }
-    document.getElementById("rp-" + name).className = "rp active";
-    var btns = document.getElementById("navbar").childNodes;
-    for (var j = 0; j < btns.length; j++) {
-        if (btns[j].className) btns[j].className = btns[j].className.replace(" active","");
-    }
+    for (var i=0;i<panelIds.length;i++) document.getElementById(panelIds[i]).className = "rp";
+    document.getElementById("rp-"+name).className = "rp active";
+    var btns = document.getElementById("navbar").children;
+    for (var j=0;j<btns.length;j++) btns[j].className = btns[j].className.replace(" active","");
     if (btn) btn.className = btn.className + " active";
-    if (name === "photo") loadPhotos();
-    if (name === "settings") document.getElementById("setting-photo-count").innerHTML = "" + photoList.length;
+    if (name==="photo")    loadPhotos();
+    if (name==="settings") document.getElementById("setting-photo-count").innerHTML = ""+photoList.length;
+    if (name==="chat")     loadUserList();
 }
 
-/* ══════════════════════════════════════
-   CLOCK
-   ══════════════════════════════════════ */
+/* ══ TERMINAL TOGGLE ════════════════════════════════════════════ */
+function switchTerminal(mode) {
+    document.getElementById("tab-eve").className    = mode==="eve"    ? "active" : "";
+    document.getElementById("tab-people").className = mode==="people" ? "active" : "";
+    document.getElementById("eve-panel").style.display    = mode==="eve"    ? "block" : "none";
+    document.getElementById("people-panel").style.display = mode==="people" ? "block" : "none";
+    if (mode==="people" && peopleUser) refreshPeopleChat();
+}
+
+/* ══ CLOCK & GREETING ═══════════════════════════════════════════ */
 var DAYS   = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
 var MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 
+var GREETINGS_TERMINAL = {
+    morning: ["SYSTEM BOOT SEQUENCE INITIATED. READY.", "ANOTHER DAY. MAKE IT COUNT.", "ONLINE. WHAT'S THE PLAN?"],
+    afternoon: ["STILL HERE. GOOD. KEEP GOING.", "MIDDAY CHECK-IN. STAY FOCUSED.", "AFTERNOON. DON'T LOSE MOMENTUM."],
+    evening: ["WINDING DOWN? REVIEW YOUR PROGRESS.", "EVENING PROTOCOLS ACTIVE.", "ALMOST DONE. FINISH STRONG."],
+    night: ["RUNNING LATE? OR RUNNING AHEAD?", "THE NIGHT SHIFT. DISCIPLINED FEW.", "LATE NIGHT. THIS BETTER BE WORTH IT."]
+};
+var GREETINGS_CUTE = {
+    morning: ["Good morning, beautiful! ✨ Today is your day!", "Rise and shine, gorgeous 🌸", "Good morning! You woke up amazing today 💕"],
+    afternoon: ["Hope your afternoon is as lovely as you are 🌷", "Keep going, you're doing amazing 💖", "Afternoon check-in — how are you feeling? 🌼"],
+    evening: ["You made it through the day! So proud of you 🌙", "Evening, love. Time to rest and recharge 💫", "Look how far you've come today ✨"],
+    night: ["Sweet dreams ahead 🌙 You deserve all the rest", "Burning the midnight oil? Take care of yourself 💕", "Night owl mode 🦋 Don't forget to rest"]
+};
+
+function updateGreeting() {
+    var h = new Date().getHours();
+    var slot = h >= 5 && h < 12 ? "morning" : h >= 12 && h < 17 ? "afternoon" : h >= 17 && h < 21 ? "evening" : "night";
+    var pool = currentTheme === "cute" ? GREETINGS_CUTE[slot] : GREETINGS_TERMINAL[slot];
+    var idx  = new Date().getDate() % pool.length;
+    document.getElementById("greeting").innerHTML = pool[idx];
+}
+
 function updateClock() {
     var d = new Date();
-    var h = d.getHours(); var m = d.getMinutes(); var s = d.getSeconds();
-    var hh = h < 10 ? "0"+h : ""+h;
-    var mm = m < 10 ? "0"+m : ""+m;
-    var ss = s < 10 ? "0"+s : ""+s;
-    var timeStr = hh + ":" + mm + ":" + ss;
-    document.getElementById("header-clock").innerHTML = timeStr;
-    document.getElementById("big-clock").innerHTML    = hh + ":" + mm + ":" + ss;
-    document.getElementById("big-date").innerHTML     = DAYS[d.getDay()] + "  " + d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear();
+    var h=d.getHours(); var m=d.getMinutes(); var s=d.getSeconds();
+    var hh=h<10?"0"+h:""+h; var mm=m<10?"0"+m:""+m; var ss=s<10?"0"+s:""+s;
+    document.getElementById("header-clock").innerHTML = hh+":"+mm+":"+ss;
+    document.getElementById("big-clock").innerHTML    = hh+":"+mm+":"+ss;
+    document.getElementById("big-date").innerHTML     = DAYS[d.getDay()]+"  "+d.getDate()+" "+MONTHS[d.getMonth()]+" "+d.getFullYear();
 }
 setInterval(updateClock, 1000);
 updateClock();
+updateGreeting();
 
-/* ══════════════════════════════════════
-   CHAT
-   ══════════════════════════════════════ */
+/* ══ EVE CHAT ═══════════════════════════════════════════════════ */
 function sendMessage() {
     var input   = document.getElementById("user-input");
     var display = document.getElementById("chat-display");
     var msg     = input.value;
     if (!msg) return;
-
-    // handle timer command locally
     var lower = msg.toLowerCase();
     if (lower.indexOf("timer") > -1) {
-        var numMatch = lower.match(/(\d+)/);
-        if (numMatch) {
-            timerSetMinutes(parseInt(numMatch[1]));
-            display.innerText += "\n> " + msg;
-            display.innerText += "\nEVE: TIMER SET TO " + numMatch[1] + " MINUTES. SWITCHING TO TIMER PANEL.";
+        var nm = lower.match(/(\d+)/);
+        if (nm) {
+            timerSetMinutes(parseInt(nm[1]));
+            display.innerText += "\n> "+msg+"\nEVE: TIMER SET TO "+nm[1]+" MINUTES.";
             display.scrollTop = display.scrollHeight;
             input.value = "";
             switchPanel("timer", document.getElementById("navbar").children[2]);
             return;
         }
     }
-
-    display.innerText += "\n> " + msg;
+    display.innerText += "\n> "+msg;
     input.value = "";
     display.scrollTop = display.scrollHeight;
-
     var xhr = new XMLHttpRequest();
-    xhr.open("POST", "/eve", true);
-    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhr.open("POST","/eve",true);
+    xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
     xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
+        if (xhr.readyState===4) {
+            if (xhr.status===200) {
                 try {
                     var data = JSON.parse(xhr.responseText);
-                    display.innerText += "\n" + data.reply;
-                    if (lower.indexOf("jadwal")   > -1 || lower.indexOf("pasang")    > -1 ||
-                        lower.indexOf("tambah")   > -1 || lower.indexOf("hapus")     > -1 ||
-                        lower.indexOf("reset")    > -1 || lower.indexOf("note")      > -1 ||
-                        lower.indexOf("catat")    > -1 || lower.indexOf("countdown") > -1 ||
-                        lower.indexOf("event")    > -1 || lower.indexOf("dashboard") > -1) {
-                        loadSchedule();
-                        loadQuote();
-                    }
-                } catch(e) { display.innerText += "\nEVE: ERROR PARSING DATA."; }
-            } else {
-                display.innerText += "\nEVE: SERVER ERROR " + xhr.status;
-            }
+                    display.innerText += "\n"+data.reply;
+                    if (lower.indexOf("jadwal")>-1||lower.indexOf("pasang")>-1||
+                        lower.indexOf("tambah")>-1||lower.indexOf("hapus")>-1||
+                        lower.indexOf("note")>-1||lower.indexOf("catat")>-1||
+                        lower.indexOf("countdown")>-1||lower.indexOf("event")>-1||
+                        lower.indexOf("dashboard")>-1) { loadSchedule(); loadQuote(); }
+                } catch(e) { display.innerText += "\nEVE: ERROR."; }
+            } else { display.innerText += "\nEVE: SERVER ERROR "+xhr.status; }
             display.scrollTop = display.scrollHeight;
         }
     };
-    xhr.onerror = function() {
-        display.innerText += "\nEVE: NETWORK ERROR.";
-        display.scrollTop = display.scrollHeight;
-    };
-    xhr.send("message=" + encodeURIComponent(msg) + "&theme=" + encodeURIComponent(currentTheme));
+    xhr.onerror = function() { display.innerText += "\nEVE: NETWORK ERROR."; display.scrollTop=display.scrollHeight; };
+    xhr.send("message="+encodeURIComponent(msg)+"&theme="+encodeURIComponent(currentTheme));
 }
-document.getElementById("user-input").onkeydown = function(e) {
-    if ((e.keyCode || e.which) === 13) sendMessage();
-};
+document.getElementById("user-input").onkeydown = function(e) { if((e.keyCode||e.which)===13) sendMessage(); };
 document.getElementById("send-btn").onclick = sendMessage;
 
-// Load chat history on start
+// Load history + send greeting on open
 function loadHistory() {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/get-history", true);
+    xhr.open("GET","/get-history",true);
     xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
+        if (xhr.readyState===4 && xhr.status===200) {
             try {
                 var data = JSON.parse(xhr.responseText);
                 var hist = data.history || [];
+                var display = document.getElementById("chat-display");
                 if (hist.length > 0) {
-                    var display = document.getElementById("chat-display");
                     var last = hist.slice(-20);
-                    for (var i = 0; i < last.length; i++) {
-                        display.innerText += "\n> " + last[i].user + "\n" + last[i].eve;
-                    }
-                    display.scrollTop = display.scrollHeight;
+                    for (var i=0;i<last.length;i++) display.innerText += "\n> "+last[i].user+"\n"+last[i].eve;
                 }
+                // Dynamic greeting from EVE
+                sendEveGreeting();
+                display.scrollTop = display.scrollHeight;
             } catch(e) {}
         }
     };
     xhr.send();
+}
+
+function sendEveGreeting() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST","/eve",true);
+    xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState===4 && xhr.status===200) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                var display = document.getElementById("chat-display");
+                display.innerText += "\n"+data.reply;
+                display.scrollTop = display.scrollHeight;
+                // Show greeting in banner too
+                var banner = document.getElementById("eve-greeting-banner");
+                var bannerText = document.getElementById("eve-greeting-text");
+                bannerText.innerHTML = data.reply;
+                banner.style.display = "block";
+                document.getElementById("eve-panel").className += " with-banner";
+                // Auto-hide after 8 seconds
+                setTimeout(function(){ closeEveGreeting(); }, 8000);
+            } catch(e) {}
+        }
+    };
+    var h = new Date().getHours();
+    var timeOfDay = h>=5&&h<12 ? "morning" : h>=12&&h<17 ? "afternoon" : h>=17&&h<21 ? "evening" : "late night";
+    var prompt = "The user just opened the dashboard. Give a short dynamic greeting for " + timeOfDay + ". Be in character. Max 2 sentences.";
+    xhr.send("message="+encodeURIComponent(prompt)+"&theme="+encodeURIComponent(currentTheme));
+}
+
+function closeEveGreeting() {
+    var banner = document.getElementById("eve-greeting-banner");
+    banner.style.display = "none";
+    var ep = document.getElementById("eve-panel");
+    ep.className = ep.className.replace(" with-banner","");
 }
 
 function clearChatHistory() {
     var xhr = new XMLHttpRequest();
-    xhr.open("POST", "/clear-history", true);
+    xhr.open("POST","/clear-history",true);
     xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            document.getElementById("chat-display").innerText = "EVE: CHAT HISTORY CLEARED.";
-        }
+        if (xhr.readyState===4) document.getElementById("chat-display").innerText = "EVE: CHAT HISTORY CLEARED.";
     };
     xhr.send();
 }
 
-/* ══════════════════════════════════════
-   SCHEDULE + EVENTS
-   ══════════════════════════════════════ */
+/* ══ SCHEDULE ═══════════════════════════════════════════════════ */
 function loadSchedule() {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/get-schedule", true);
+    xhr.open("GET","/get-schedule",true);
     xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
+        if (xhr.readyState===4 && xhr.status===200) {
             try {
                 var data = JSON.parse(xhr.responseText);
-                renderJadwal(data.jadwal || []);
-                renderEvents(data.events || []);
+                renderJadwal(data.jadwal||[]);
+                renderEvents(data.events||[]);
+                renderNotes(data.notes||[]);
             } catch(e) {}
         }
     };
     xhr.send();
 }
-
 function renderJadwal(items) {
     var el = document.getElementById("jadwal-panel-list");
-    if (!items.length) { el.innerHTML = '<span class="empty-msg">JADWAL KOSONG</span>'; return; }
-    var html = "";
-    for (var i = 0; i < items.length; i++) {
-        html += '<div class="jadwal-row"><span class="jtime">' + items[i].time + '</span>' + items[i].task.toUpperCase() + '</div>';
-    }
-    el.innerHTML = html;
+    if (!items.length) { el.innerHTML='<span class="empty-msg">JADWAL KOSONG</span>'; return; }
+    var html="";
+    for(var i=0;i<items.length;i++) html+='<div class="jadwal-row"><span class="jtime">'+items[i].time+'</span>'+items[i].task.toUpperCase()+'</div>';
+    el.innerHTML=html;
 }
-
 function renderEvents(events) {
     var el = document.getElementById("events-panel-list");
-    if (!events.length) { el.innerHTML = '<span class="empty-msg">NO EVENTS</span>'; return; }
-    var html = "";
-    for (var i = 0; i < events.length; i++) {
-        var daysLeft = events[i].days_left;
-        var dLabel = daysLeft < 0 ? "PASSED" : (daysLeft === 0 ? "TODAY!" : daysLeft + " DAYS LEFT");
-        html += '<div class="countdown-row"><span class="cname">' + events[i].name.toUpperCase() + '</span><span class="cdays">' + events[i].date + '  —  ' + dLabel + '</span></div>';
+    if (!events.length) { el.innerHTML='<span class="empty-msg">NO EVENTS</span>'; return; }
+    var html="";
+    for(var i=0;i<events.length;i++) {
+        var dl=events[i].days_left;
+        var lbl=dl<0?"PASSED":dl===0?"TODAY!":dl+" DAYS LEFT";
+        html+='<div class="countdown-row"><span class="cname">'+events[i].name.toUpperCase()+'</span><span class="cdays">'+events[i].date+' — '+lbl+'</span></div>';
     }
-    el.innerHTML = html;
+    el.innerHTML=html;
 }
-
+function renderNotes(notes) {
+    var el = document.getElementById("notes-in-quote");
+    if (!notes.length) { el.innerHTML='<span class="empty-msg">NOTES KOSONG</span>'; return; }
+    var html="";
+    for(var i=0;i<notes.length;i++) html+='<div class="qnote-item">› '+notes[i]+'</div>';
+    el.innerHTML=html;
+}
 loadSchedule();
-setInterval(loadSchedule, 60000); // refresh every minute
+setInterval(loadSchedule, 60000);
 
-/* ══════════════════════════════════════
-   QUOTE OF THE DAY + NOTES
-   ══════════════════════════════════════ */
+/* ══ QUOTE ══════════════════════════════════════════════════════ */
 function loadQuote() {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/get-quote?theme=" + currentTheme, true);
+    xhr.open("GET","/get-quote?theme="+currentTheme,true);
     xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
+        if (xhr.readyState===4 && xhr.status===200) {
             try {
-                var data = JSON.parse(xhr.responseText);
-                document.getElementById("quote-text").innerHTML = "&ldquo;" + data.quote + "&rdquo;";
+                var data=JSON.parse(xhr.responseText);
+                document.getElementById("quote-text").innerHTML = "\u201c"+data.quote+"\u201d";
                 document.getElementById("quote-date").innerHTML = data.date;
             } catch(e) {}
         }
     };
     xhr.send();
-
-    // Also load notes into quote panel
-    var xhr2 = new XMLHttpRequest();
-    xhr2.open("GET", "/get-schedule", true);
-    xhr2.onreadystatechange = function() {
-        if (xhr2.readyState === 4 && xhr2.status === 200) {
-            try {
-                var data = JSON.parse(xhr2.responseText);
-                var notes = data.notes || [];
-                var el = document.getElementById("notes-in-quote");
-                if (!notes.length) { el.innerHTML = '<span class="empty-msg">NOTES KOSONG</span>'; return; }
-                var html = "";
-                for (var i = 0; i < notes.length; i++) {
-                    html += '<div class="qnote-item">&#8250; ' + notes[i] + '</div>';
-                }
-                el.innerHTML = html;
-            } catch(e) {}
-        }
-    };
-    xhr2.send();
 }
 loadQuote();
 
-/* ══════════════════════════════════════
-   PHOTOS + FADE SLIDESHOW
-   ══════════════════════════════════════ */
-var photoList  = [];
-var photoIndex = 0;
-var photoLayer = "a"; // which layer is visible
-var slideshowMs = 5000;
-
+/* ══ PHOTOS ═════════════════════════════════════════════════════ */
+var photoList=[]; var photoIndex=0; var photoLayer="a"; var slideshowMs=5000;
 function updateSlideshowInterval() {
-    var val = parseInt(document.getElementById("slideshow-interval").value);
-    if (val >= 1) slideshowMs = val * 1000;
+    var v=parseInt(document.getElementById("slideshow-interval").value);
+    if(v>=1) slideshowMs=v*1000;
 }
-
 function loadPhotos() {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/get-photos", true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
+    var xhr=new XMLHttpRequest();
+    xhr.open("GET","/get-photos",true);
+    xhr.onreadystatechange=function() {
+        if(xhr.readyState===4&&xhr.status===200) {
             try {
-                var data = JSON.parse(xhr.responseText);
-                photoList = data.photos || [];
-                if (photoList.length > 0) {
-                    if (photoIndex >= photoList.length) photoIndex = 0;
-                    showPhoto(photoIndex, false);
-                } else {
-                    document.getElementById("photo-caption").innerHTML = "NO PHOTOS";
-                }
-                document.getElementById("setting-photo-count").innerHTML = "" + photoList.length;
+                var data=JSON.parse(xhr.responseText);
+                photoList=data.photos||[];
+                if(photoList.length>0) { if(photoIndex>=photoList.length)photoIndex=0; showPhoto(photoIndex,false); }
+                else document.getElementById("photo-caption").innerHTML="NO PHOTOS";
+                document.getElementById("setting-photo-count").innerHTML=""+photoList.length;
             } catch(e) {}
         }
     };
     xhr.send();
 }
-
-function showPhoto(idx, fade) {
-    if (!photoList.length) return;
-    var imgA = document.getElementById("photo-img-a").children[0];
-    var imgB = document.getElementById("photo-img-b").children[0];
-    var layerA = document.getElementById("photo-img-a");
-    var layerB = document.getElementById("photo-img-b");
-    var cap = document.getElementById("photo-caption");
-    var parts = photoList[idx].split("/");
-    cap.innerHTML = (idx+1) + "/" + photoList.length + "  " + parts[parts.length-1].toUpperCase();
-
-    if (!fade) {
-        imgA.src = photoList[idx];
-        layerA.style.opacity = "1";
-        layerB.style.opacity = "0";
-        photoLayer = "a";
-        return;
-    }
-    // Fade: load into hidden layer, then cross-fade
-    if (photoLayer === "a") {
-        imgB.src = photoList[idx];
-        layerB.style.opacity = "1";
-        layerA.style.opacity = "0";
-        photoLayer = "b";
-    } else {
-        imgA.src = photoList[idx];
-        layerA.style.opacity = "1";
-        layerB.style.opacity = "0";
-        photoLayer = "a";
-    }
+function showPhoto(idx,fade) {
+    if(!photoList.length) return;
+    var imgA=document.getElementById("photo-img-a").children[0];
+    var imgB=document.getElementById("photo-img-b").children[0];
+    var lA=document.getElementById("photo-img-a");
+    var lB=document.getElementById("photo-img-b");
+    var parts=photoList[idx].split("/");
+    document.getElementById("photo-caption").innerHTML=(idx+1)+"/"+photoList.length+"  "+parts[parts.length-1].toUpperCase();
+    if(!fade){imgA.src=photoList[idx];lA.style.opacity="1";lB.style.opacity="0";photoLayer="a";return;}
+    if(photoLayer==="a"){imgB.src=photoList[idx];lB.style.opacity="1";lA.style.opacity="0";photoLayer="b";}
+    else{imgA.src=photoList[idx];lA.style.opacity="1";lB.style.opacity="0";photoLayer="a";}
 }
-
-function nextPhoto() {
-    if (!photoList.length) return;
-    photoIndex = (photoIndex + 1) % photoList.length;
-    showPhoto(photoIndex, true);
+function nextPhoto() { if(!photoList.length)return; photoIndex=(photoIndex+1)%photoList.length; showPhoto(photoIndex,true); }
+function showDeleteConfirm() {
+    if(!photoList.length) return;
+    document.getElementById("photo-delete-confirm").style.display = "block";
+    document.getElementById("photo-del-pwd").value = "";
+    document.getElementById("photo-delete-status").innerHTML = "";
 }
-
-function deletePhoto() {
-    if (!photoList.length) return;
-    var pwd = prompt("PASSWORD:");
-    if (!pwd) return;
-    var url   = photoList[photoIndex];
-    var parts = url.split("/");
-    var fname = parts[parts.length - 1];
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "/delete-photo", true);
-    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            try {
-                var data = JSON.parse(xhr.responseText);
-                if (data.success) {
-                    photoList.splice(photoIndex, 1);
-                    if (photoIndex >= photoList.length) photoIndex = 0;
-                    if (photoList.length > 0) showPhoto(photoIndex, false);
-                    else {
-                        document.getElementById("photo-img-a").children[0].src = "";
-                        document.getElementById("photo-caption").innerHTML = "NO PHOTOS";
-                    }
-                } else { alert(data.reply); }
-            } catch(e) {}
+function cancelDeletePhoto() {
+    document.getElementById("photo-delete-confirm").style.display = "none";
+}
+function doDeletePhoto() {
+    if(!photoList.length) return;
+    var pwd = document.getElementById("photo-del-pwd").value;
+    var status = document.getElementById("photo-delete-status");
+    if(!pwd){ status.innerHTML="ENTER PASSWORD."; return; }
+    var fname=photoList[photoIndex].split("/").pop();
+    var xhr=new XMLHttpRequest();
+    xhr.open("POST","/delete-photo",true);
+    xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+    xhr.onreadystatechange=function() {
+        if(xhr.readyState===4){
+            try{
+                var data=JSON.parse(xhr.responseText);
+                if(data.success){
+                    cancelDeletePhoto();
+                    photoList.splice(photoIndex,1);
+                    if(photoIndex>=photoList.length)photoIndex=0;
+                    if(photoList.length>0)showPhoto(photoIndex,false);
+                    else{document.getElementById("photo-img-a").children[0].src="";document.getElementById("photo-caption").innerHTML="NO PHOTOS";}
+                } else { status.innerHTML=data.reply; }
+            }catch(e){ status.innerHTML="ERROR."; }
         }
     };
-    xhr.send("password=" + encodeURIComponent(pwd) + "&filename=" + encodeURIComponent(fname));
+    xhr.send("password="+encodeURIComponent(pwd)+"&filename="+encodeURIComponent(fname));
 }
 
+/* ── DM Composer (inline, replaces prompt) ── */
+function openDMComposer() {
+    var c = document.getElementById("dm-composer");
+    var isOpen = c.style.display==="block";
+    c.style.display = isOpen ? "none" : "block";
+    var pm = document.getElementById("people-main");
+    if(isOpen){
+        pm.className = pm.className.replace(" dm-open","");
+    } else {
+        pm.className += " dm-open";
+        document.getElementById("dm-target-input").focus();
+    }
+}
+function closeDMComposer() {
+    document.getElementById("dm-composer").style.display = "none";
+    document.getElementById("dm-target-input").value = "";
+    var pm = document.getElementById("people-main");
+    pm.className = pm.className.replace(" dm-open","");
+}
+function confirmNewDM() {
+    var target = document.getElementById("dm-target-input").value.trim().toLowerCase();
+    if(!target) return;
+    if(target===peopleUser) { closeDMComposer(); return; }
+    closeDMComposer();
+    startNewDM_direct(target);
+}
 loadPhotos();
-// Slideshow tick
-setInterval(function() {
-    if (photoList.length > 1) nextPhoto();
-}, slideshowMs);
-// Refresh photo list every 30s
+setInterval(function(){ if(photoList.length>1) nextPhoto(); }, slideshowMs);
 setInterval(loadPhotos, 30000);
 
-/* ══════════════════════════════════════
-   TIMER
-   ══════════════════════════════════════ */
-var timerTotal   = 25 * 60; // seconds
-var timerLeft    = timerTotal;
-var timerRunning = false;
-var timerInterval = null;
-
-function timerSetMinutes(min) {
-    timerReset();
-    timerTotal = min * 60;
-    timerLeft  = timerTotal;
-    renderTimer();
-    document.getElementById("timer-min-input").value = "" + min;
-    document.getElementById("timer-label").innerHTML = min + " MIN TIMER — READY";
-}
-
-function timerSet() {
-    var val = parseInt(document.getElementById("timer-min-input").value);
-    if (val > 0) timerSetMinutes(val);
-}
-
-function timerStartStop() {
-    if (timerRunning) {
-        clearInterval(timerInterval);
-        timerRunning = false;
-        document.getElementById("timer-start-btn").innerHTML = "START";
-        document.getElementById("timer-label").innerHTML = "PAUSED";
+/* ══ TIMER ══════════════════════════════════════════════════════ */
+var timerTotal=25*60; var timerLeft=timerTotal; var timerRunning=false; var timerInterval=null;
+function timerSetMinutes(min){ timerReset(); timerTotal=min*60; timerLeft=timerTotal; renderTimer(); document.getElementById("timer-min-input").value=""+min; document.getElementById("timer-label").innerHTML=min+" MIN — READY"; }
+function timerSet(){ var v=parseInt(document.getElementById("timer-min-input").value); if(v>0)timerSetMinutes(v); }
+function timerStartStop(){
+    if(timerRunning){
+        clearInterval(timerInterval); timerRunning=false;
+        document.getElementById("timer-start-btn").innerHTML="START";
+        document.getElementById("timer-label").innerHTML="PAUSED";
     } else {
-        if (timerLeft <= 0) { timerLeft = timerTotal; }
-        timerRunning = true;
-        document.getElementById("timer-start-btn").innerHTML = "PAUSE";
-        timerInterval = setInterval(function() {
-            timerLeft -= 1;
-            renderTimer();
-            if (timerLeft <= 0) {
-                clearInterval(timerInterval);
-                timerRunning = false;
-                document.getElementById("timer-start-btn").innerHTML = "START";
-                document.getElementById("timer-label").innerHTML = "TIME'S UP!";
-                document.getElementById("timer-display").innerHTML = "00:00";
+        if(timerLeft<=0)timerLeft=timerTotal;
+        timerRunning=true; document.getElementById("timer-start-btn").innerHTML="PAUSE";
+        timerInterval=setInterval(function(){
+            timerLeft-=1; renderTimer();
+            if(timerLeft<=0){
+                clearInterval(timerInterval); timerRunning=false;
+                document.getElementById("timer-start-btn").innerHTML="START";
+                document.getElementById("timer-label").innerHTML="TIME'S UP!";
+                document.getElementById("timer-display").innerHTML="00:00";
             }
-        }, 1000);
+        },1000);
     }
 }
-
-function timerReset() {
-    clearInterval(timerInterval);
-    timerRunning = false;
-    timerLeft    = timerTotal;
-    document.getElementById("timer-start-btn").innerHTML = "START";
-    document.getElementById("timer-label").innerHTML = "READY";
-    renderTimer();
+function timerReset(){ clearInterval(timerInterval); timerRunning=false; timerLeft=timerTotal; document.getElementById("timer-start-btn").innerHTML="START"; document.getElementById("timer-label").innerHTML="READY"; renderTimer(); }
+function renderTimer(){
+    var m=Math.floor(timerLeft/60); var s=timerLeft%60;
+    document.getElementById("timer-display").innerHTML=(m<10?"0"+m:""+m)+":"+(s<10?"0"+s:""+s);
+    if(timerRunning) document.getElementById("timer-label").innerHTML=Math.floor((timerLeft/timerTotal)*100)+"% REMAINING";
 }
-
-function renderTimer() {
-    var m = Math.floor(timerLeft / 60);
-    var s = timerLeft % 60;
-    var mm = m < 10 ? "0"+m : ""+m;
-    var ss = s < 10 ? "0"+s : ""+s;
-    document.getElementById("timer-display").innerHTML = mm + ":" + ss;
-    if (timerRunning) {
-        var pct = Math.floor((timerLeft / timerTotal) * 100);
-        document.getElementById("timer-label").innerHTML = pct + "% REMAINING";
-    }
-}
-
 renderTimer();
 
-// Load history on start
+/* ══ PEOPLE CHAT ════════════════════════════════════════════════ */
+var peopleUser = "";
+var peoplePwd  = "";
+var currentRoom = "global"; // "global" or "dm:username"
+var authMode   = "login"; // "login" or "register"
+var pollInterval = null;
+
+function toggleAuthMode() {
+    authMode = authMode==="login" ? "register" : "login";
+    document.getElementById("auth-mode-title").innerHTML  = authMode==="login" ? "// LOGIN" : "// REGISTER";
+    document.getElementById("auth-submit-btn").innerHTML  = authMode==="login" ? "LOGIN" : "REGISTER";
+    document.getElementById("auth-toggle-link").innerHTML = authMode==="login" ? "Don't have an account? REGISTER" : "Already registered? LOGIN";
+    document.getElementById("auth-pin-wrap").style.display = authMode==="register" ? "block" : "none";
+    document.getElementById("auth-status").innerHTML = "";
+}
+
+function authSubmit() {
+    var username = document.getElementById("auth-username").value.trim();
+    var password = document.getElementById("auth-password").value;
+    var pin      = document.getElementById("auth-pin").value;
+    var status   = document.getElementById("auth-status");
+    if (!username||!password) { status.innerHTML="USERNAME AND PASSWORD REQUIRED."; return; }
+
+    var url  = authMode==="login" ? "/login" : "/register";
+    var body = JSON.stringify({username:username, password:password, pin:pin});
+    var xhr  = new XMLHttpRequest();
+    xhr.open("POST",url,true);
+    xhr.setRequestHeader("Content-Type","application/json");
+    xhr.onreadystatechange=function(){
+        if(xhr.readyState===4){
+            try{
+                var data=JSON.parse(xhr.responseText);
+                if(data.success){
+                    peopleUser = username;
+                    peoplePwd  = password;
+                    document.getElementById("people-auth").style.display = "none";
+                    document.getElementById("people-main").style.display = "block";
+                    document.getElementById("logged-in-name").innerHTML  = username.toUpperCase();
+                    switchRoom("global");
+                } else {
+                    status.innerHTML = data.reply;
+                }
+            }catch(e){ status.innerHTML="ERROR. TRY AGAIN."; }
+        }
+    };
+    xhr.send(body);
+}
+
+function peopleLogout() {
+    peopleUser=""; peoplePwd="";
+    clearInterval(pollInterval);
+    document.getElementById("people-auth").style.display = "block";
+    document.getElementById("people-main").style.display = "none";
+    document.getElementById("auth-username").value="";
+    document.getElementById("auth-password").value="";
+    document.getElementById("auth-status").innerHTML="";
+}
+
+function switchRoom(room) {
+    currentRoom = room;
+    // Update tab highlight
+    var tabs = document.getElementById("room-tabs").children;
+    for (var i=0;i<tabs.length;i++) {
+        if(tabs[i].className && tabs[i].className.indexOf("room-tab")>-1)
+            tabs[i].className="room-tab";
+    }
+    var tabId = room==="global" ? "tab-global" : "tab-dm-"+room.replace("dm:","");
+    var tabEl = document.getElementById(tabId);
+    if(tabEl) tabEl.className="room-tab active";
+    refreshPeopleChat();
+    clearInterval(pollInterval);
+    pollInterval = setInterval(refreshPeopleChat, 4000);
+}
+
+function refreshPeopleChat() {
+    if (!peopleUser) return;
+    var url = currentRoom==="global"
+        ? "/chat/global"
+        : "/chat/dm?me="+encodeURIComponent(peopleUser)+"&other="+encodeURIComponent(currentRoom.replace("dm:",""));
+    var xhr=new XMLHttpRequest();
+    xhr.open("GET",url,true);
+    xhr.onreadystatechange=function(){
+        if(xhr.readyState===4&&xhr.status===200){
+            try{ renderMessages(JSON.parse(xhr.responseText).messages||[]); }catch(e){}
+        }
+    };
+    xhr.send();
+}
+
+function renderMessages(msgs) {
+    var el = document.getElementById("people-msgs");
+    var atBottom = el.scrollTop+el.clientHeight >= el.scrollHeight-20;
+    var html="";
+    for(var i=0;i<msgs.length;i++){
+        var m=msgs[i];
+        var isMe=m.from===peopleUser;
+        html+='<div class="pmsg'+(isMe?" me":"")+'"><div class="pmsg-from">'+m.from.toUpperCase()+'<span class="pmsg-ts">'+m.ts+'</span></div><div class="pmsg-bubble">'+escHtml(m.text)+'</div></div>';
+    }
+    if(el.innerHTML!==html) el.innerHTML=html;
+    if(atBottom) el.scrollTop=el.scrollHeight;
+}
+
+function escHtml(s) {
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function peopleSend() {
+    if (!peopleUser) return;
+    var input = document.getElementById("people-input");
+    var text  = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    var url  = currentRoom==="global" ? "/chat/global" : "/chat/dm";
+    var body = currentRoom==="global"
+        ? {username:peopleUser, password:peoplePwd, text:text}
+        : {username:peopleUser, password:peoplePwd, to:currentRoom.replace("dm:",""), text:text};
+    var xhr=new XMLHttpRequest();
+    xhr.open("POST",url,true);
+    xhr.setRequestHeader("Content-Type","application/json");
+    xhr.onreadystatechange=function(){ if(xhr.readyState===4) refreshPeopleChat(); };
+    xhr.send(JSON.stringify(body));
+}
+
+document.getElementById("people-input").onkeydown=function(e){
+    if((e.keyCode||e.which)===13) peopleSend();
+};
+document.getElementById("dm-target-input").onkeydown=function(e){
+    if((e.keyCode||e.which)===13) confirmNewDM();
+};
+
+function startNewDM() {
+    openDMComposer();
+}
+
+function loadUserList() {
+    var xhr=new XMLHttpRequest();
+    xhr.open("GET","/get-users",true);
+    xhr.onreadystatechange=function(){
+        if(xhr.readyState===4&&xhr.status===200){
+            try{
+                var data=JSON.parse(xhr.responseText);
+                var users=data.users||[];
+                var el=document.getElementById("user-list-panel");
+                if(!users.length){el.innerHTML='<span class="empty-msg">NO USERS YET</span>';return;}
+                var html="";
+                for(var i=0;i<users.length;i++){
+                    html+='<div class="jadwal-row" style="cursor:pointer" onclick="startDMWith(\''+users[i]+'\')">👤 '+users[i].toUpperCase()+'<span style="float:right;font-size:9px;color:var(--fg3)">TAP TO DM</span></div>';
+                }
+                el.innerHTML=html;
+            }catch(e){}
+        }
+    };
+    xhr.send();
+}
+
+function startDMWith(username) {
+    if (!peopleUser) { switchTerminal("people"); return; }
+    if (username===peopleUser) return; // silently ignore self-DM
+    startNewDM_direct(username);
+}
+
+function startNewDM_direct(target) {
+    if (!target||target===peopleUser) return;
+    var roomKey="dm:"+target;
+    var tabId="tab-dm-"+target;
+    if(!document.getElementById(tabId)){
+        var tab=document.createElement("span");
+        tab.className="room-tab"; tab.id=tabId;
+        tab.innerHTML="✉ "+target.toUpperCase();
+        tab.onclick=(function(r){return function(){switchRoom(r);};})(roomKey);
+        document.getElementById("room-tabs").appendChild(tab);
+        var dmList=document.getElementById("dm-list-panel");
+        if(dmList.innerHTML.indexOf("empty-msg")>-1) dmList.innerHTML="";
+        dmList.innerHTML+='<div class="jadwal-row" style="cursor:pointer" onclick="switchTerminal(\'people\');switchRoom(\''+roomKey+'\')">✉ '+target.toUpperCase()+'</div>';
+    }
+    switchTerminal("people");
+    switchRoom(roomKey);
+}
+
+// Init
 loadHistory();
 </script>
-
 </body>
 </html>
