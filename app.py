@@ -8,6 +8,15 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
+# ── Supabase (only for users + chat) ──────────────────────────────────────────
+try:
+    from supabase import create_client
+    SUPA_URL = os.environ.get("SUPABASE_URL", "")
+    SUPA_KEY = os.environ.get("SUPABASE_KEY", "")
+    supa = create_client(SUPA_URL, SUPA_KEY) if SUPA_URL and SUPA_KEY else None
+except Exception:
+    supa = None
+
 app = Flask(__name__)
 CORS(app)
 
@@ -16,7 +25,7 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 MASTER_PASSWORD = os.environ.get("UPLOAD_PASSWORD", "rahasia123")
-MASTER_PIN      = os.environ.get("MASTER_PIN", "0000")   # PIN to approve new users
+MASTER_PIN      = os.environ.get("MASTER_PIN", "0000")
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER']      = UPLOAD_FOLDER
@@ -24,7 +33,7 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# HELPERS
+# HELPERS — FILE (jadwal, notes, events, chat_history → tetap JSON di repo)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def allowed_file(filename):
@@ -47,9 +56,94 @@ def save_data(f, data):
 def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
-def dm_filename(u1, u2):
+def dm_room_id(u1, u2):
     pair = sorted([u1.lower(), u2.lower()])
-    return "chat_dm_" + pair[0] + "_" + pair[1] + ".json"
+    return pair[0] + "__" + pair[1]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPERS — SUPABASE (users + chat)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── USERS ──────────────────────────────────────────────────────────────────
+
+def sb_get_user(username):
+    """Return user row dict or None."""
+    if not supa: return None
+    try:
+        res = supa.table("users").select("*").eq("username", username.lower()).execute()
+        return res.data[0] if res.data else None
+    except: return None
+
+def sb_create_user(username, pw_hash):
+    if not supa: return False
+    try:
+        supa.table("users").insert({
+            "username": username.lower(),
+            "pw_hash":  pw_hash,
+            "joined":   datetime.now().isoformat()
+        }).execute()
+        return True
+    except: return False
+
+def sb_list_users():
+    if not supa: return []
+    try:
+        res = supa.table("users").select("username").order("joined").execute()
+        return [r["username"] for r in res.data]
+    except: return []
+
+# ── GLOBAL CHAT ────────────────────────────────────────────────────────────
+
+def sb_global_get(limit=100):
+    if not supa: return []
+    try:
+        res = (supa.table("chat_global")
+               .select("*")
+               .order("id", desc=False)
+               .limit(limit)
+               .execute())
+        return res.data
+    except: return []
+
+def sb_global_post(username, text):
+    if not supa: return False
+    try:
+        supa.table("chat_global").insert({
+            "from_user": username,
+            "text":      text,
+            "ts":        datetime.now().strftime("%H:%M")
+        }).execute()
+        return True
+    except: return False
+
+# ── DM CHAT ────────────────────────────────────────────────────────────────
+
+def sb_dm_get(me, other, limit=100):
+    if not supa: return []
+    room = dm_room_id(me, other)
+    try:
+        res = (supa.table("chat_dm")
+               .select("*")
+               .eq("room_id", room)
+               .order("id", desc=False)
+               .limit(limit)
+               .execute())
+        return res.data
+    except: return []
+
+def sb_dm_post(username, to, text):
+    if not supa: return False
+    try:
+        supa.table("chat_dm").insert({
+            "room_id":   dm_room_id(username, to),
+            "from_user": username,
+            "to_user":   to,
+            "text":      text,
+            "ts":        datetime.now().strftime("%H:%M")
+        }).execute()
+        return True
+    except: return False
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -72,9 +166,17 @@ def upload_page():
 @app.route('/upload-file', methods=['POST'])
 def upload_file():
     pwd = request.form.get('password', '')
-    # Accept master password OR any registered user password
-    users = load_data("users.json", {})
-    user_match = any(u['pw_hash'] == hash_pw(pwd) for u in users.values())
+    user_match = False
+    if supa:
+        users = sb_list_users()
+        for uname in users:
+            u = sb_get_user(uname)
+            if u and u.get('pw_hash') == hash_pw(pwd):
+                user_match = True
+                break
+    else:
+        stored = load_data("users.json", {})
+        user_match = any(u['pw_hash'] == hash_pw(pwd) for u in stored.values())
     if pwd != MASTER_PASSWORD and not user_match:
         return jsonify({"success": False, "reply": "EVE: ACCESS DENIED."}), 403
     if 'photo' not in request.files:
@@ -98,8 +200,17 @@ def get_photos():
 @app.route('/delete-photo', methods=['POST'])
 def delete_photo():
     pwd = request.form.get('password', '')
-    users = load_data("users.json", {})
-    user_match = any(u['pw_hash'] == hash_pw(pwd) for u in users.values())
+    user_match = False
+    if supa:
+        users = sb_list_users()
+        for uname in users:
+            u = sb_get_user(uname)
+            if u and u.get('pw_hash') == hash_pw(pwd):
+                user_match = True
+                break
+    else:
+        stored = load_data("users.json", {})
+        user_match = any(u['pw_hash'] == hash_pw(pwd) for u in stored.values())
     if pwd != MASTER_PASSWORD and not user_match:
         return jsonify({"success": False, "reply": "EVE: ACCESS DENIED."}), 403
     filename = os.path.basename(request.form.get('filename', ''))
@@ -113,7 +224,7 @@ def delete_photo():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# EVE CHAT HISTORY
+# EVE CHAT HISTORY  (tetap file JSON)
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.route('/get-history')
@@ -127,12 +238,11 @@ def clear_history():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# USER SYSTEM
+# USER SYSTEM  → Supabase
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.route('/register', methods=['POST'])
 def register():
-    """Register a new user. Requires master PIN for approval."""
     data     = request.get_json(force=True)
     username = data.get('username', '').strip().lower()
     password = data.get('password', '')
@@ -144,17 +254,15 @@ def register():
         return jsonify({"success": False, "reply": "INVALID MASTER PIN. CONTACT ADMIN."}), 403
     if not re.match(r'^[a-z0-9_]{3,20}$', username):
         return jsonify({"success": False, "reply": "USERNAME: 3-20 chars, letters/numbers/underscore only."}), 400
+    if not supa:
+        return jsonify({"success": False, "reply": "DATABASE NOT CONNECTED."}), 503
 
-    users = load_data("users.json", {})
-    if username in users:
+    if sb_get_user(username):
         return jsonify({"success": False, "reply": "USERNAME ALREADY TAKEN."}), 409
 
-    users[username] = {
-        "username": username,
-        "pw_hash":  hash_pw(password),
-        "joined":   str(datetime.now())
-    }
-    save_data("users.json", users)
+    ok = sb_create_user(username, hash_pw(password))
+    if not ok:
+        return jsonify({"success": False, "reply": "DATABASE ERROR. TRY AGAIN."}), 500
     return jsonify({"success": True, "reply": "WELCOME, " + username.upper() + ". YOU ARE NOW REGISTERED."})
 
 
@@ -163,32 +271,35 @@ def login():
     data     = request.get_json(force=True)
     username = data.get('username', '').strip().lower()
     password = data.get('password', '')
-    users    = load_data("users.json", {})
-    if username not in users or users[username]['pw_hash'] != hash_pw(password):
+    if not supa:
+        return jsonify({"success": False, "reply": "DATABASE NOT CONNECTED."}), 503
+    u = sb_get_user(username)
+    if not u or u['pw_hash'] != hash_pw(password):
         return jsonify({"success": False, "reply": "INVALID CREDENTIALS."}), 401
     return jsonify({"success": True, "username": username, "reply": "AUTHENTICATED."})
 
 
 @app.route('/get-users')
 def get_users():
-    users = load_data("users.json", {})
-    return jsonify({"users": list(users.keys())})
+    return jsonify({"users": sb_list_users()})
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PEOPLE CHAT (global + DM)
+# PEOPLE CHAT  → Supabase
 # ══════════════════════════════════════════════════════════════════════════════
 
 def verify_user(username, password):
-    users = load_data("users.json", {})
-    u = username.strip().lower()
-    return u in users and users[u]['pw_hash'] == hash_pw(password)
+    if not supa: return False
+    u = sb_get_user(username)
+    return u is not None and u['pw_hash'] == hash_pw(password)
 
 
 @app.route('/chat/global', methods=['GET'])
 def chat_global_get():
-    msgs = load_data("chat_global.json", [])
-    return jsonify({"messages": msgs[-100:]})  # last 100
+    msgs = sb_global_get()
+    # normalise field names untuk frontend (expects "from" not "from_user")
+    out = [{"from": m["from_user"], "text": m["text"], "ts": m["ts"]} for m in msgs]
+    return jsonify({"messages": out})
 
 
 @app.route('/chat/global', methods=['POST'])
@@ -201,14 +312,8 @@ def chat_global_post():
         return jsonify({"success": False, "reply": "NOT AUTHENTICATED."}), 401
     if not text:
         return jsonify({"success": False, "reply": "EMPTY MESSAGE."}), 400
-    msgs = load_data("chat_global.json", [])
-    msgs.append({
-        "from": username,
-        "text": text,
-        "ts":   datetime.now().strftime("%H:%M")
-    })
-    save_data("chat_global.json", msgs)
-    return jsonify({"success": True})
+    ok = sb_global_post(username, text)
+    return jsonify({"success": ok})
 
 
 @app.route('/chat/dm', methods=['GET'])
@@ -217,8 +322,9 @@ def chat_dm_get():
     other = request.args.get('other', '').strip().lower()
     if not me or not other:
         return jsonify({"messages": []})
-    msgs = load_data(dm_filename(me, other), [])
-    return jsonify({"messages": msgs[-100:]})
+    msgs = sb_dm_get(me, other)
+    out  = [{"from": m["from_user"], "to": m["to_user"], "text": m["text"], "ts": m["ts"]} for m in msgs]
+    return jsonify({"messages": out})
 
 
 @app.route('/chat/dm', methods=['POST'])
@@ -231,23 +337,12 @@ def chat_dm_post():
 
     if not verify_user(username, password):
         return jsonify({"success": False, "reply": "NOT AUTHENTICATED."}), 401
-
-    users = load_data("users.json", {})
-    if to not in users:
+    if not supa or not sb_get_user(to):
         return jsonify({"success": False, "reply": "USER '" + to.upper() + "' NOT FOUND."}), 404
     if not text:
         return jsonify({"success": False, "reply": "EMPTY MESSAGE."}), 400
-
-    fname = dm_filename(username, to)
-    msgs  = load_data(fname, [])
-    msgs.append({
-        "from": username,
-        "to":   to,
-        "text": text,
-        "ts":   datetime.now().strftime("%H:%M")
-    })
-    save_data(fname, msgs)
-    return jsonify({"success": True})
+    ok = sb_dm_post(username, to, text)
+    return jsonify({"success": ok})
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -329,8 +424,33 @@ def get_quote():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SCHEDULE & EVENTS
+# SCHEDULE & EVENTS  (tetap file JSON di repo)
 # ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/add-jadwal', methods=['POST'])
+def add_jadwal():
+    data = request.get_json(force=True)
+    jadwal = load_data("jadwal.json", [])
+    jadwal.append({"task": data.get("task",""), "time": data.get("time","00:00")})
+    jadwal = sorted(jadwal, key=lambda x: x['time'])
+    save_data("jadwal.json", jadwal)
+    return jsonify({"success": True})
+
+@app.route('/add-event', methods=['POST'])
+def add_event():
+    data = request.get_json(force=True)
+    events = load_data("events.json", [])
+    events.append({"name": data.get("name",""), "date": data.get("date","")})
+    save_data("events.json", events)
+    return jsonify({"success": True})
+
+@app.route('/add-note', methods=['POST'])
+def add_note():
+    data = request.get_json(force=True)
+    notes = load_data("notes.json", [])
+    notes.append(data.get("note",""))
+    save_data("notes.json", notes)
+    return jsonify({"success": True})
 
 @app.route('/get-schedule')
 def get_schedule():
@@ -389,10 +509,10 @@ def eve_interface():
 
     # ── HAPUS ──
     if "hapus" in msg or "selesai" in msg:
-        target    = re.sub(r'(hapus|selesai|tugas|jadwal|note|arsip|event|countdown)', '', msg, flags=re.IGNORECASE).strip()
-        jadwal    = load_data("jadwal.json", [])
-        notes     = load_data("notes.json",  [])
-        events    = load_data("events.json", [])
+        target = re.sub(r'(hapus|selesai|tugas|jadwal|note|arsip|event|countdown)', '', msg, flags=re.IGNORECASE).strip()
+        jadwal = load_data("jadwal.json", [])
+        notes  = load_data("notes.json",  [])
+        events = load_data("events.json", [])
         nj = [j for j in jadwal if target not in j['task'].lower()]
         nn = [n for n in notes  if target not in n.lower()]
         ne = [e for e in events if target not in e['name'].lower()]
