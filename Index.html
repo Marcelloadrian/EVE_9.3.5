@@ -452,11 +452,6 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
             <div id="room-tabs">
                 <span class="room-tab active" id="tab-global" onclick="switchRoom('global')">🌐 GLOBAL</span>
             </div>
-            <!-- DM Search bar — always visible below tabs -->
-            <div id="dm-search-bar">
-                <input type="text" id="dm-target-input" placeholder="SEARCH USER TO DM..." autocomplete="off">
-                <button onclick="confirmNewDM()">✉</button>
-            </div>
             <div id="people-msgs"></div>
             <div id="people-input-row">
                 <input type="text" id="people-input" placeholder="MESSAGE...">
@@ -579,7 +574,12 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
             <div class="rp-inner">
                 <div class="sec-title">REGISTERED USERS</div>
                 <div id="user-list-panel"><span class="empty-msg">LOADING...</span></div>
-                <div class="sec-title" style="margin-top:16px">OPEN DM</div>
+                <div class="sec-title" style="margin-top:16px">START DM</div>
+                <div id="dm-search-bar-right">
+                    <input type="text" id="dm-target-input" placeholder="USERNAME..." autocomplete="off">
+                    <button onclick="confirmNewDM()">✉ START</button>
+                </div>
+                <div class="sec-title" style="margin-top:16px">OPEN DMs</div>
                 <div id="dm-list-panel"><span class="empty-msg">NO DMs YET</span></div>
             </div>
         </div>
@@ -1290,7 +1290,7 @@ function loadUserList() {
 
 function startDMWith(username) {
     if (!peopleUser) { switchTerminal("people"); return; }
-    if (username===peopleUser) return; // silently ignore self-DM
+    if (username===peopleUser) return;
     startNewDM_direct(username);
 }
 
@@ -1304,9 +1304,12 @@ function startNewDM_direct(target) {
         tab.innerHTML="✉ "+target.toUpperCase();
         tab.onclick=(function(r){return function(){switchRoom(r);};})(roomKey);
         document.getElementById("room-tabs").appendChild(tab);
+        /* update dm-list-panel only if it exists and is visible */
         var dmList=document.getElementById("dm-list-panel");
-        if(dmList.innerHTML.indexOf("empty-msg")>-1) dmList.innerHTML="";
-        dmList.innerHTML+='<div class="jadwal-row" style="cursor:pointer" onclick="switchTerminal(\'people\');switchRoom(\''+roomKey+'\')">✉ '+target.toUpperCase()+'</div>';
+        if(dmList){
+            if(dmList.innerHTML.indexOf("empty-msg")>-1) dmList.innerHTML="";
+            dmList.innerHTML+='<div class="jadwal-row" style="cursor:pointer" onclick="switchTerminal(\'people\');switchRoom(\''+roomKey+'\')">✉ '+target.toUpperCase()+'</div>';
+        }
     }
     switchTerminal("people");
     switchRoom(roomKey);
