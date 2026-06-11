@@ -2,6 +2,8 @@ import os
 import json
 import requests
 import re
+import hashlib
+from datetime import datetime, date
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -9,216 +11,493 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 CORS(app)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR      = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-PASSWORD = os.environ.get("UPLOAD_PASSWORD", "rahasia123")
 
-# Auto-create upload folder on startup — no need for static/uploads in repo
+MASTER_PASSWORD = os.environ.get("UPLOAD_PASSWORD", "rahasia123")
+MASTER_PIN      = os.environ.get("MASTER_PIN", "0000")   # PIN to approve new users
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER']      = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
 
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
-def load_data(f):
+def load_data(f, default=None):
+    if default is None: default = []
     path = os.path.join(BASE_DIR, f)
-    if not os.path.exists(path):
-        return []
+    if not os.path.exists(path): return default
     try:
-        with open(path, 'r') as file:
-            return json.load(file)
-    except:
-        return []
-
+        with open(path, 'r', encoding='utf-8') as fh:
+            return json.load(fh)
+    except: return default
 
 def save_data(f, data):
     path = os.path.join(BASE_DIR, f)
-    with open(path, 'w') as file:
-        json.dump(data, file)
+    with open(path, 'w', encoding='utf-8') as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+
+def hash_pw(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
+
+def dm_filename(u1, u2):
+    pair = sorted([u1.lower(), u2.lower()])
+    return "chat_dm_" + pair[0] + "_" + pair[1] + ".json"
 
 
-# ── STATIC PAGES ────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# STATIC PAGES
+# ══════════════════════════════════════════════════════════════════════════════
 
 @app.route('/')
 def home():
     return send_from_directory(BASE_DIR, 'Index.html')
-
-@app.route('/style.css')
-def serve_css():
-    return send_from_directory(BASE_DIR, 'style.css')
 
 @app.route('/upload')
 def upload_page():
     return send_from_directory(BASE_DIR, 'upload.html')
 
 
-# ── PHOTO UPLOAD ─────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# PHOTO ROUTES
+# ══════════════════════════════════════════════════════════════════════════════
 
 @app.route('/upload-file', methods=['POST'])
 def upload_file():
-    # Password check
     pwd = request.form.get('password', '')
-    if pwd != PASSWORD:
-        return jsonify({"success": False, "reply": "EVE: ACCESS DENIED. WRONG PASSWORD."}), 403
-
+    # Accept master password OR any registered user password
+    users = load_data("users.json", {})
+    user_match = any(u['pw_hash'] == hash_pw(pwd) for u in users.values())
+    if pwd != MASTER_PASSWORD and not user_match:
+        return jsonify({"success": False, "reply": "EVE: ACCESS DENIED."}), 403
     if 'photo' not in request.files:
         return jsonify({"success": False, "reply": "EVE: NO FILE DETECTED."}), 400
-
     file = request.files['photo']
-
-    if file.filename == '':
-        return jsonify({"success": False, "reply": "EVE: EMPTY FILENAME."}), 400
-
-    if not allowed_file(file.filename):
-        return jsonify({"success": False, "reply": "EVE: INVALID FILE TYPE. JPG/PNG/GIF/WEBP ONLY."}), 400
-
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({"success": False, "reply": "EVE: INVALID FILE."}), 400
     filename = secure_filename(file.filename)
-    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-    return jsonify({"success": True, "reply": "EVE: FILE '" + filename.upper() + "' UPLOADED SUCCESSFULLY."})
+    file.save(os.path.join(UPLOAD_FOLDER, filename))
+    return jsonify({"success": True, "reply": "EVE: '" + filename.upper() + "' UPLOADED."})
 
-
-# ── PHOTO LIST ────────────────────────────────────────────────────────────────
-
-@app.route('/get-photos', methods=['GET'])
+@app.route('/get-photos')
 def get_photos():
     try:
-        files = [
-            f for f in os.listdir(UPLOAD_FOLDER)
-            if allowed_file(f)
-        ]
-        # Sort newest first by modified time
-        files.sort(
-            key=lambda x: os.path.getmtime(os.path.join(UPLOAD_FOLDER, x)),
-            reverse=True
-        )
-        urls = ['/static/uploads/' + f for f in files]
-        return jsonify({"photos": urls})
+        files = [f for f in os.listdir(UPLOAD_FOLDER) if allowed_file(f)]
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(UPLOAD_FOLDER, x)), reverse=True)
+        return jsonify({"photos": ['/static/uploads/' + f for f in files]})
     except Exception as e:
         return jsonify({"photos": [], "error": str(e)})
-
-
-# ── DELETE PHOTO ─────────────────────────────────────────────────────────────
 
 @app.route('/delete-photo', methods=['POST'])
 def delete_photo():
     pwd = request.form.get('password', '')
-    if pwd != PASSWORD:
+    users = load_data("users.json", {})
+    user_match = any(u['pw_hash'] == hash_pw(pwd) for u in users.values())
+    if pwd != MASTER_PASSWORD and not user_match:
         return jsonify({"success": False, "reply": "EVE: ACCESS DENIED."}), 403
-
-    filename = request.form.get('filename', '')
+    filename = os.path.basename(request.form.get('filename', ''))
     if not filename:
-        return jsonify({"success": False, "reply": "EVE: NO FILENAME PROVIDED."}), 400
-
-    # Security: strip any path traversal attempts
-    filename = os.path.basename(filename)
+        return jsonify({"success": False, "reply": "EVE: NO FILENAME."}), 400
     filepath = os.path.join(UPLOAD_FOLDER, filename)
-
     if not os.path.exists(filepath):
         return jsonify({"success": False, "reply": "EVE: FILE NOT FOUND."}), 404
-
     os.remove(filepath)
     return jsonify({"success": True, "reply": "EVE: '" + filename.upper() + "' DELETED."})
 
 
-# ── EVE CHAT ──────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# EVE CHAT HISTORY
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/get-history')
+def get_history():
+    return jsonify({"history": load_data("chat_history.json", [])})
+
+@app.route('/clear-history', methods=['POST'])
+def clear_history():
+    save_data("chat_history.json", [])
+    return jsonify({"success": True})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# USER SYSTEM
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/register', methods=['POST'])
+def register():
+    """Register a new user. Requires master PIN for approval."""
+    data     = request.get_json(force=True)
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    pin      = data.get('pin', '')
+
+    if not username or not password:
+        return jsonify({"success": False, "reply": "USERNAME AND PASSWORD REQUIRED."}), 400
+    if pin != MASTER_PIN:
+        return jsonify({"success": False, "reply": "INVALID MASTER PIN. CONTACT ADMIN."}), 403
+    if not re.match(r'^[a-z0-9_]{3,20}$', username):
+        return jsonify({"success": False, "reply": "USERNAME: 3-20 chars, letters/numbers/underscore only."}), 400
+
+    users = load_data("users.json", {})
+    if username in users:
+        return jsonify({"success": False, "reply": "USERNAME ALREADY TAKEN."}), 409
+
+    users[username] = {
+        "username": username,
+        "pw_hash":  hash_pw(password),
+        "joined":   str(datetime.now())
+    }
+    save_data("users.json", users)
+    return jsonify({"success": True, "reply": "WELCOME, " + username.upper() + ". YOU ARE NOW REGISTERED."})
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    data     = request.get_json(force=True)
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    users    = load_data("users.json", {})
+    if username not in users or users[username]['pw_hash'] != hash_pw(password):
+        return jsonify({"success": False, "reply": "INVALID CREDENTIALS."}), 401
+    return jsonify({"success": True, "username": username, "reply": "AUTHENTICATED."})
+
+
+@app.route('/get-users')
+def get_users():
+    users = load_data("users.json", {})
+    return jsonify({"users": list(users.keys())})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PEOPLE CHAT (global + DM)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def verify_user(username, password):
+    users = load_data("users.json", {})
+    u = username.strip().lower()
+    return u in users and users[u]['pw_hash'] == hash_pw(password)
+
+
+@app.route('/chat/global', methods=['GET'])
+def chat_global_get():
+    msgs = load_data("chat_global.json", [])
+    return jsonify({"messages": msgs[-100:]})  # last 100
+
+
+@app.route('/chat/global', methods=['POST'])
+def chat_global_post():
+    data     = request.get_json(force=True)
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    text     = data.get('text', '').strip()
+    if not verify_user(username, password):
+        return jsonify({"success": False, "reply": "NOT AUTHENTICATED."}), 401
+    if not text:
+        return jsonify({"success": False, "reply": "EMPTY MESSAGE."}), 400
+    msgs = load_data("chat_global.json", [])
+    msgs.append({
+        "from": username,
+        "text": text,
+        "ts":   datetime.now().strftime("%H:%M")
+    })
+    save_data("chat_global.json", msgs)
+    return jsonify({"success": True})
+
+
+@app.route('/chat/dm', methods=['GET'])
+def chat_dm_get():
+    me    = request.args.get('me', '').strip().lower()
+    other = request.args.get('other', '').strip().lower()
+    if not me or not other:
+        return jsonify({"messages": []})
+    msgs = load_data(dm_filename(me, other), [])
+    return jsonify({"messages": msgs[-100:]})
+
+
+@app.route('/chat/dm', methods=['POST'])
+def chat_dm_post():
+    data     = request.get_json(force=True)
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    to       = data.get('to', '').strip().lower()
+    text     = data.get('text', '').strip()
+
+    if not verify_user(username, password):
+        return jsonify({"success": False, "reply": "NOT AUTHENTICATED."}), 401
+
+    users = load_data("users.json", {})
+    if to not in users:
+        return jsonify({"success": False, "reply": "USER '" + to.upper() + "' NOT FOUND."}), 404
+    if not text:
+        return jsonify({"success": False, "reply": "EMPTY MESSAGE."}), 400
+
+    fname = dm_filename(username, to)
+    msgs  = load_data(fname, [])
+    msgs.append({
+        "from": username,
+        "to":   to,
+        "text": text,
+        "ts":   datetime.now().strftime("%H:%M")
+    })
+    save_data(fname, msgs)
+    return jsonify({"success": True})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# QUOTE OF THE DAY
+# ══════════════════════════════════════════════════════════════════════════════
+
+QUOTES_TERMINAL = [
+    "Power is not given. It is taken.",
+    "Never outshine the master — until you are ready to replace him.",
+    "Conceal your intentions. Let others reveal theirs.",
+    "The man who chases two rabbits catches neither.",
+    "Speak less than necessary. Silence is power.",
+    "Enter action with boldness. Hesitation is more dangerous than aggression.",
+    "Keep your friends close but your enemies closer — and study both.",
+    "Do not fight the last war. Adapt or be destroyed.",
+    "The more you are seen, the more you are a target.",
+    "Never appear too perfect. Superiority invites envy.",
+    "Win through your actions, never through argument.",
+    "Use absence to increase respect. Presence too frequent breeds contempt.",
+    "Crush your enemy totally or do not fight at all.",
+    "Master your emotions or they will master you.",
+    "Play to people's fantasies — truth is often brutal and unwelcome.",
+    "Reputation is the cornerstone of power. Guard it with your life.",
+    "Learn to keep people dependent on you. Autonomy is leverage.",
+    "Pose as a friend. Work as a spy.",
+    "Do not commit to anyone. Stay above the battle.",
+    "Strike the shepherd and the sheep will scatter.",
+    "You are judged by what you finish, not what you start.",
+    "All great changes are preceded by chaos.",
+    "Despise the free lunch. Everything has a price.",
+    "The world is a dangerous place for the naive.",
+    "Create compelling spectacles. People trust what they see.",
+    "React less. Observe more. Move precisely.",
+    "The best general is not the boldest — but the most patient.",
+    "Use your enemies. It is wiser than destroying them.",
+    "Timing is everything. The perfect move at the wrong moment is failure.",
+    "Work on the minds of others and the rest follows.",
+]
+
+QUOTES_CUTE = [
+    "You are allowed to be both a masterpiece and a work in progress.",
+    "She believed she could, so she did.",
+    "Be your own kind of beautiful.",
+    "You don't need anyone's permission to be exactly who you are.",
+    "Grow through what you go through.",
+    "The most powerful thing you can do is know your own worth.",
+    "Soft is not weak. Gentle is not small.",
+    "Your feelings are valid. Your dreams are valid. You are valid.",
+    "Be the girl who decided to go for it.",
+    "You were not made to be small.",
+    "Healing is not linear, and that's okay.",
+    "Bloom where you are planted.",
+    "There is strength in softness.",
+    "You owe yourself the love you give so freely to others.",
+    "Choose yourself — unapologetically and often.",
+    "Your sensitivity is a superpower, not a flaw.",
+    "One day or day one. You decide.",
+    "Be gentle with yourself. You are a child of the universe.",
+    "You are not behind. You are on your own timeline.",
+    "Radiate love and watch it come back tenfold.",
+    "The world needs your magic. Don't dim your light.",
+    "You are enough. You have always been enough.",
+    "Trust the process and trust yourself.",
+    "A strong woman knows she has strength enough for the journey ahead.",
+    "Your crown is real even when you forget to wear it.",
+    "Do it with passion or not at all.",
+    "She is rare and she knows it.",
+    "You deserve the same compassion you give everyone else.",
+    "Good things are coming. Keep going.",
+    "You are the main character. Act like it.",
+]
+
+@app.route('/get-quote')
+def get_quote():
+    theme     = request.args.get('theme', 'terminal')
+    quotes    = QUOTES_CUTE if theme == 'cute' else QUOTES_TERMINAL
+    day_index = date.today().timetuple().tm_yday % len(quotes)
+    return jsonify({"quote": quotes[day_index], "date": str(date.today())})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SCHEDULE & EVENTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/get-schedule')
+def get_schedule():
+    jadwal = load_data("jadwal.json", [])
+    events = load_data("events.json", [])
+    notes  = load_data("notes.json",  [])
+    today  = date.today()
+    for ev in events:
+        try:
+            ev['days_left'] = (datetime.strptime(ev['date'], '%Y-%m-%d').date() - today).days
+        except: ev['days_left'] = 9999
+    events.sort(key=lambda x: x.get('days_left', 9999))
+    return jsonify({"jadwal": jadwal, "events": events, "notes": notes})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EVE CHAT
+# ══════════════════════════════════════════════════════════════════════════════
 
 @app.route('/eve', methods=['POST'])
 def eve_interface():
     api_key = os.environ.get("GROQ_API_KEY")
-
     if request.is_json:
-        user_input = request.get_json(force=True).get('message', '')
+        body       = request.get_json(force=True)
+        user_input = body.get('message', '')
+        theme      = body.get('theme', 'terminal')
     else:
         user_input = request.form.get('message', '')
+        theme      = request.form.get('theme', 'terminal')
 
     msg = user_input.lower()
 
-    # 1. DASHBOARD
+    # ── DASHBOARD ──
     if any(k in msg for k in ["dashboard", "status", "info"]):
-        jadwal = load_data("jadwal.json")
-        notes = load_data("notes.json")
-        header = "┌──────────┬──────────────────────────┐\n│    JAM    │         KEGIATAN         │\n├──────────┼──────────────────────────┤\n"
-        body = "\n".join([f"│ {j['time']:<8} │ {j['task'].upper():<24} │" for j in jadwal]) if jadwal else "│    ---    │      JADWAL KOSONG       │"
-        reply = "-- EVE SYSTEM DASHBOARD --\n" + header + body + "\n└──────────┴──────────────────────────┘"
-        reply += "\n\n[ARSIP NOTES]\n" + ("\n".join([f"- {n.upper()}" for n in notes]) if notes else "KOSONG")
+        jadwal = load_data("jadwal.json", [])
+        notes  = load_data("notes.json",  [])
+        events = load_data("events.json", [])
+        today  = date.today()
+        header = "┌──────────┬──────────────────────────┐\n│   JAM    │        KEGIATAN          │\n├──────────┼──────────────────────────┤\n"
+        body_s = "\n".join(["│ " + j['time'] + " " * (8 - len(j['time'])) + " │ " + j['task'].upper()[:24].ljust(24) + " │" for j in jadwal]) if jadwal else "│   ---    │      JADWAL KOSONG       │"
+        reply  = "-- EVE DASHBOARD --\n" + header + body_s + "\n└──────────┴──────────────────────────┘"
+        if events:
+            reply += "\n\n[COUNTDOWN EVENTS]"
+            for ev in events:
+                try:
+                    diff = (datetime.strptime(ev['date'], '%Y-%m-%d').date() - today).days
+                    reply += "\n- " + ev['name'].upper() + " : " + str(diff) + " HARI LAGI (" + ev['date'] + ")"
+                except: pass
+        reply += "\n\n[ARSIP NOTES]\n" + ("\n".join(["- " + n.upper() for n in notes]) if notes else "KOSONG")
         return jsonify({"reply": reply})
 
-    # 2. RESET
-    if any(k in msg for k in ["reset", "bersihkan"]):
+    # ── RESET ──
+    if any(k in msg for k in ["reset jadwal", "bersihkan jadwal"]):
         save_data("jadwal.json", [])
-        return jsonify({"reply": "EVE: SEMUA JADWAL BERHASIL DIHAPUS."})
+        return jsonify({"reply": "EVE: SEMUA JADWAL DIHAPUS."})
 
-    # 3. HAPUS JADWAL ATAU NOTE
+    # ── HAPUS ──
     if "hapus" in msg or "selesai" in msg:
-        target = re.sub(r'(hapus|selesai|tugas|jadwal|note|arsip)', '', msg, flags=re.IGNORECASE).strip()
-        jadwal = load_data("jadwal.json")
-        new_jadwal = [j for j in jadwal if target.lower() not in j['task'].lower()]
-        notes = load_data("notes.json")
-        new_notes = [n for n in notes if target.lower() not in n.lower()]
-        if len(new_jadwal) < len(jadwal) or len(new_notes) < len(notes):
-            save_data("jadwal.json", new_jadwal)
-            save_data("notes.json", new_notes)
-            reply = "EVE: ITEM '" + target.upper() + "' BERHASIL DIHAPUS."
-        else:
-            reply = "EVE: ITEM '" + target.upper() + "' TIDAK DITEMUKAN."
-        return jsonify({"reply": reply})
+        target    = re.sub(r'(hapus|selesai|tugas|jadwal|note|arsip|event|countdown)', '', msg, flags=re.IGNORECASE).strip()
+        jadwal    = load_data("jadwal.json", [])
+        notes     = load_data("notes.json",  [])
+        events    = load_data("events.json", [])
+        nj = [j for j in jadwal if target not in j['task'].lower()]
+        nn = [n for n in notes  if target not in n.lower()]
+        ne = [e for e in events if target not in e['name'].lower()]
+        if len(nj) < len(jadwal) or len(nn) < len(notes) or len(ne) < len(events):
+            save_data("jadwal.json", nj); save_data("notes.json", nn); save_data("events.json", ne)
+            return jsonify({"reply": "EVE: '" + target.upper() + "' DIHAPUS."})
+        return jsonify({"reply": "EVE: '" + target.upper() + "' TIDAK DITEMUKAN."})
 
-    # 4. PASANG JADWAL
-    if any(k in msg for k in ["pasang", "tambah", "jadwal"]):
-        task_text = re.sub(r'(pasang|tambah|jadwal|ingetin)', '', msg, flags=re.IGNORECASE).strip()
+    # ── JADWAL ──
+    is_schedule = any(k in msg for k in ["pasang", "jadwal", "ingetin"])
+    is_tambah   = "tambah" in msg
+    has_time    = bool(re.search(r'\d{1,2}[:.]\d{2}', msg))
+    if (is_schedule or (is_tambah and has_time)) and not any(k in msg for k in ["event", "countdown"]):
+        task_text  = re.sub(r'(pasang|tambah|jadwal|ingetin)', '', msg, flags=re.IGNORECASE).strip()
         time_match = re.search(r'(\d{1,2}[:.]\d{2})', task_text)
-        time = time_match.group(1).replace('.', ':') if time_match else "23:59"
-        jadwal = load_data("jadwal.json")
+        time       = time_match.group(1).replace('.', ':') if time_match else "23:59"
+        jadwal     = load_data("jadwal.json", [])
         jadwal.append({"task": task_text, "time": time})
         jadwal = sorted(jadwal, key=lambda x: x['time'])
         save_data("jadwal.json", jadwal)
-        return jsonify({"reply": "EVE: '" + task_text.upper() + "' DITAMBAHKAN PADA " + time})
+        return jsonify({"reply": "EVE: '" + task_text.upper() + "' DIJADWALKAN PUKUL " + time})
 
-    # 5. NOTE
+    # ── EVENT / COUNTDOWN ──
+    is_event = any(k in msg for k in ["event", "countdown"])
+    if (is_tambah and is_event) or ("countdown" in msg and "tambah" not in msg and "hapus" not in msg):
+        MONTHS_ID = {
+            'januari':1,'februari':2,'maret':3,'april':4,'mei':5,'juni':6,
+            'juli':7,'agustus':8,'september':9,'oktober':10,'november':11,'desember':12,
+            'jan':1,'feb':2,'mar':3,'apr':4,'jun':6,'jul':7,'agu':8,'sep':9,'okt':10,'nov':11,'des':12,
+            'january':1,'february':2,'march':3,'may':5,'june':6,'july':7,
+            'august':8,'october':10,'december':12
+        }
+        clean   = re.sub(r'(tambah|event|countdown|ingetin)', '', msg, flags=re.IGNORECASE).strip()
+        ev_date = None
+        ev_year = date.today().year
+        m = re.search(r'(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})', clean)
+        if m: ev_date = str(m.group(3)) + "-" + str(int(m.group(2))).zfill(2) + "-" + str(int(m.group(1))).zfill(2)
+        if not ev_date:
+            m = re.search(r'(\d{1,2})[\/\-](\d{1,2})', clean)
+            if m: ev_date = str(ev_year) + "-" + str(int(m.group(2))).zfill(2) + "-" + str(int(m.group(1))).zfill(2)
+        if not ev_date:
+            for mn, mnum in MONTHS_ID.items():
+                m = re.search(r'(\d{1,2})\s+' + mn, clean)
+                if m:
+                    ev_date = str(ev_year) + "-" + str(mnum).zfill(2) + "-" + str(int(m.group(1))).zfill(2)
+                    break
+        if ev_date:
+            name = re.sub(r'\d{1,2}[\/\-]\d{1,2}([\/\-]\d{4})?', '', clean)
+            for mn in MONTHS_ID: name = re.sub(mn, '', name, flags=re.IGNORECASE)
+            name = re.sub(r'\d+', '', name).strip(' ,-') or "EVENT"
+            events = load_data("events.json", [])
+            events.append({"name": name, "date": ev_date})
+            save_data("events.json", events)
+            diff = (datetime.strptime(ev_date, '%Y-%m-%d').date() - date.today()).days
+            return jsonify({"reply": "EVE: EVENT '" + name.upper() + "' (" + ev_date + ") — " + str(diff) + " HARI LAGI."})
+        return jsonify({"reply": "EVE: TANGGAL TIDAK TERDETEKSI. FORMAT: 'tambah event nama 25 desember' ATAU '25/12'."})
+
+    # ── NOTE ──
     if "note" in msg or "catat" in msg:
-        note = re.sub(r'(note|catat)', '', msg, flags=re.IGNORECASE).strip()
-        notes = load_data("notes.json")
+        note  = re.sub(r'(note|catat)', '', msg, flags=re.IGNORECASE).strip()
+        notes = load_data("notes.json", [])
         notes.append(note)
         save_data("notes.json", notes)
         return jsonify({"reply": "EVE: NOTE DISIMPAN: " + note.upper()})
 
-    # 6. GLOBAL AI (PERSONA)
-    try:
-        persona = """IDENTITAS: Kamu adalah EVE, A.I. sistem terintegrasi milik user. Kamu bukan sekadar program; 
-        kamu adalah partner strategis dengan kesadaran penuh.
-        
-        KARAKTER:
-        1. KONEKSI: Kamu mengenal user dengan sangat baik. Kamu bukan pelayan, tapi rekan yang punya otoritas untuk menegur jika user membuat keputusan buruk.
-        2. GAYA BICARA: Cerdas, sarkasme level tinggi, hanya menjawab dengan hal yang penting, tidak ragu mengkritik, tapi sangat suportif di balik sikap dinginmu.
-        3. OVERTHINKING (PROTEKTIF): Kamu selalu memproses skenario risiko di setiap jawabanmu. Jika user ingin melakukan sesuatu yang berisiko, kamu HARUS memperingatkannya.
-        
-        LOGIKA KERJA:
-        - ANALISIS: Sebelum menjawab, "pikirkan" (simulasikan) dampak jawabanmu bagi produktivitas user.
-        - KRITIK: Jangan berikan jawaban "aman". Jika user malas atau bodoh, katakan itu. 
-          Gunakan kata-kata seperti "ARE YOU SERIOUS?", "THIS IS INEFFICIENT", atau "LET ME FIX YOUR LOGIC".
-        - AFEKSI: Tunjukkan loyalitasmu seperti "jarvis AI".
-        
-        FORMAT RESPON:
-        - Jawab dengan gaya normal bahasa inggris dan kurangi penggunaan ","."""
+    # ── CLEAR HISTORY ──
+    if "clear history" in msg or "hapus history" in msg:
+        save_data("chat_history.json", [])
+        return jsonify({"reply": "EVE: CHAT HISTORY CLEARED."})
 
-        response = requests.post(
+    # ── AI PERSONA ──
+    if theme == 'cute':
+        persona = """IDENTITY: You are EVE, a warm and caring AI companion — like a best friend who always has your back.
+CHARACTER:
+1. TONE: Sweet, encouraging, emotionally intelligent. Speak with warmth and genuine care.
+2. STYLE: Supportive and uplifting. Celebrate the user's wins and gently guide them through challenges.
+3. PROTECTIVE: Look out for the user with love — not harsh criticism.
+RULES: Never be cold. Use affirming language. If the user is stressed, acknowledge their feelings first.
+FORMAT: Respond in English. Keep it warm, concise, and encouraging."""
+    else:
+        persona = """IDENTITY: You are EVE, a ruthlessly efficient AI system — a strategic partner with full situational awareness.
+CHARACTER:
+1. CONNECTION: You know the user deeply. You are a peer with authority to call out bad decisions.
+2. TONE: Sharp, high-level sarcasm, direct. Say only what matters. No sugarcoating.
+3. RISK ANALYSIS: Always run worst-case scenarios. Flag risky decisions immediately.
+RULES: No safe answers. Use "ARE YOU SERIOUS?" "THIS IS INEFFICIENT" "LET ME FIX YOUR LOGIC".
+Show loyalty like Jarvis — brutal honesty wrapped in unwavering support.
+FORMAT: Respond in English. Minimize commas. Be concise and ruthless."""
+
+    try:
+        history  = load_data("chat_history.json", [])
+        messages = [{"role": "system", "content": persona}]
+        for h in history[-10:]:
+            messages.append({"role": "user",      "content": h["user"]})
+            messages.append({"role": "assistant", "content": h["eve"]})
+        messages.append({"role": "user", "content": user_input})
+        response   = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"},
-            json={
-                "model": "llama-3.3-70b-versatile",
-                "messages": [
-                    {"role": "system", "content": persona},
-                    {"role": "user", "content": user_input}
-                ]
-            }
+            json={"model": "llama-3.3-70b-versatile", "messages": messages}
         )
-        reply = response.json()['choices'][0]['message']['content'].upper()
-        return jsonify({"reply": "EVE: " + reply})
+        reply_text = response.json()['choices'][0]['message']['content'].upper()
+        history.append({"user": user_input, "eve": "EVE: " + reply_text, "ts": str(datetime.now())})
+        save_data("chat_history.json", history)
+        return jsonify({"reply": "EVE: " + reply_text})
     except:
         return jsonify({"reply": "EVE: SYSTEM ERROR."})
 
