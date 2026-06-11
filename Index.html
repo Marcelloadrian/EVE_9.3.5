@@ -163,13 +163,9 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
 
 /* Messages area */
 #people-msgs {
-    position:absolute; top:60px; left:0; right:0; bottom:46px;
+    position:absolute; top:96px; left:0; right:0; bottom:46px;
     overflow-y:scroll; padding:8px;
 }
-/* dm-composer pushes room-tabs down */
-#dm-composer ~ #room-tabs { top:auto; }
-#people-main.dm-open #room-tabs { top:100px; }
-#people-main.dm-open #people-msgs { top:130px; }
 .pmsg { margin-bottom:6px; }
 .pmsg .pmsg-from { font-size:9px; letter-spacing:2px; color:var(--fg2); margin-bottom:2px; }
 .pmsg .pmsg-bubble {
@@ -347,27 +343,27 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
                  font-family:var(--font); font-size:11px; outline:none;
                  border-radius:var(--radius); }
 
-/* ══ INLINE DM COMPOSER ══════════════════════════════ */
-#dm-composer {
-    display:none; padding:8px; border-bottom:1px solid var(--border2);
-    background:var(--bg2);
+/* ══ DM SEARCH BAR ═══════════════════════════════════ */
+#dm-search-bar {
+    position:absolute; top:60px; left:0; right:0; height:36px;
+    border-bottom:2px solid var(--sep); background:var(--bg2);
+    overflow:hidden;
 }
-#dm-composer input {
-    display:block; width:100%; margin-bottom:6px;
+#dm-search-bar input {
+    float:left; width:82%; height:36px;
     background:var(--input-bg); color:var(--fg);
-    border:1px solid var(--border); padding:7px 8px;
-    font-family:var(--font); font-size:11px; outline:none;
-}
-#dm-composer .dm-comp-btns { overflow:hidden; }
-#dm-composer .dm-comp-btns button {
-    float:left; width:50%; height:30px;
-    background:var(--bg3); color:var(--fg);
     border:none; border-right:1px solid var(--border2);
-    cursor:pointer; font-family:var(--font); font-size:10px;
-    letter-spacing:1px;
+    padding:0 10px; outline:none;
+    font-family:var(--font); font-size:11px; letter-spacing:1px;
 }
-#dm-composer .dm-comp-btns button:last-child { border-right:none; background:var(--accent); color:var(--title-fg); }
-#dm-composer .dm-comp-btns:after { content:""; display:table; clear:both; }
+#dm-search-bar button {
+    float:left; width:18%; height:36px;
+    background:var(--accent); color:var(--title-fg);
+    border:none; cursor:pointer; font-size:14px;
+}
+#dm-search-bar:after { content:""; display:table; clear:both; }
+/* push msgs down to account for tabs(30) + search(36) */
+#people-msgs { top:96px; }
 /* ══ DELETE CONFIRM ══════════════════════════════════ */
 #photo-delete-confirm {
     display:none; padding:8px; background:var(--bg3);
@@ -422,7 +418,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
 
     <!-- EVE Chat -->
     <div id="eve-panel">
-        <div id="chat-display">EVE SYSTEM READY...</div>
+        <div id="chat-display" data-booted="false"></div>
         <div id="chat-input-row">
             <input type="text" id="user-input" placeholder="COMMAND...">
             <button id="send-btn">EXEC</button>
@@ -452,17 +448,14 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
                 <span id="people-top-left">💬 <span id="logged-in-name">---</span></span>
                 <button id="people-logout" onclick="peopleLogout()">LOGOUT</button>
             </div>
-            <!-- Inline DM Composer (replaces prompt()) -->
-            <div id="dm-composer">
-                <input type="text" id="dm-target-input" placeholder="TARGET USERNAME...">
-                <div class="dm-comp-btns">
-                    <button onclick="closeDMComposer()">CANCEL</button>
-                    <button onclick="confirmNewDM()">START DM ✉</button>
-                </div>
-            </div>
+            <!-- Room tabs -->
             <div id="room-tabs">
                 <span class="room-tab active" id="tab-global" onclick="switchRoom('global')">🌐 GLOBAL</span>
-                <span id="new-dm-btn" onclick="openDMComposer()">+ DM</span>
+            </div>
+            <!-- DM Search bar — always visible below tabs -->
+            <div id="dm-search-bar">
+                <input type="text" id="dm-target-input" placeholder="SEARCH USER TO DM..." autocomplete="off">
+                <button onclick="confirmNewDM()">✉</button>
             </div>
             <div id="people-msgs"></div>
             <div id="people-input-row">
@@ -745,11 +738,26 @@ function loadHistory() {
                 var data = JSON.parse(xhr.responseText);
                 var hist = data.history || [];
                 var display = document.getElementById("chat-display");
+
+                /* ── Boot sequence ── */
+                if (currentTheme === "cute") {
+                    display.innerText =
+                        "✦ EVE — your personal space ✦\n" +
+                        "━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                        "here to help, always 💕";
+                } else {
+                    display.innerText =
+                        "╔══════════════════════════╗\n" +
+                        "║   EVE SYSTEM v3.0        ║\n" +
+                        "║   BOOT SEQUENCE OK       ║\n" +
+                        "║   ALL MODULES LOADED     ║\n" +
+                        "╚══════════════════════════╝";
+                }
+
                 if (hist.length > 0) {
                     var last = hist.slice(-20);
                     for (var i=0;i<last.length;i++) display.innerText += "\n> "+last[i].user+"\n"+last[i].eve;
                 }
-                // Dynamic greeting from EVE
                 sendEveGreeting();
                 display.scrollTop = display.scrollHeight;
             } catch(e) {}
@@ -1048,32 +1056,18 @@ function doDeletePhoto() {
     xhr.send("password="+encodeURIComponent(pwd)+"&filename="+encodeURIComponent(fname));
 }
 
-/* ── DM Composer (inline, replaces prompt) ── */
-function openDMComposer() {
-    var c = document.getElementById("dm-composer");
-    var isOpen = c.style.display==="block";
-    c.style.display = isOpen ? "none" : "block";
-    var pm = document.getElementById("people-main");
-    if(isOpen){
-        pm.className = pm.className.replace(" dm-open","");
-    } else {
-        pm.className += " dm-open";
-        document.getElementById("dm-target-input").focus();
-    }
-}
-function closeDMComposer() {
-    document.getElementById("dm-composer").style.display = "none";
-    document.getElementById("dm-target-input").value = "";
-    var pm = document.getElementById("people-main");
-    pm.className = pm.className.replace(" dm-open","");
-}
+/* ── DM Search bar ── */
 function confirmNewDM() {
-    var target = document.getElementById("dm-target-input").value.trim().toLowerCase();
-    if(!target) return;
-    if(target===peopleUser) { closeDMComposer(); return; }
-    closeDMComposer();
+    var input = document.getElementById("dm-target-input");
+    var target = input.value.trim().toLowerCase();
+    if (!target) return;
+    input.value = "";
+    if (target === peopleUser) return;
     startNewDM_direct(target);
 }
+document.getElementById("dm-target-input").onkeydown = function(e) {
+    if ((e.keyCode||e.which) === 13) confirmNewDM();
+};
 loadPhotos();
 setInterval(function(){ if(photoList.length>1) nextPhoto(); }, slideshowMs);
 setInterval(loadPhotos, 30000);
@@ -1235,13 +1229,8 @@ function peopleSend() {
 document.getElementById("people-input").onkeydown=function(e){
     if((e.keyCode||e.which)===13) peopleSend();
 };
-document.getElementById("dm-target-input").onkeydown=function(e){
-    if((e.keyCode||e.which)===13) confirmNewDM();
-};
 
-function startNewDM() {
-    openDMComposer();
-}
+function startNewDM() { document.getElementById("dm-target-input").focus(); }
 
 function loadUserList() {
     var xhr=new XMLHttpRequest();
