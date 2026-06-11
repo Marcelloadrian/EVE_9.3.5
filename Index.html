@@ -48,7 +48,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
 
 /* LEFT col */
 #col-left { position:absolute; top:0; left:0; bottom:0; width:52%;
-            border-right:3px solid var(--sep); }
+            border-right:3px solid var(--sep); box-shadow:3px 0 8px rgba(0,255,0,0.07); }
 
 /* Separator line between toggle bar top and content below */
 #col-left:after { content:""; display:block; }
@@ -214,7 +214,8 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
 .rp-inner { position:absolute; top:24px; left:0; right:0; bottom:0;
             overflow-y:scroll; padding:10px; background:var(--bg); }
 .panel-title { height:24px; line-height:24px; background:var(--title-bg); color:var(--title-fg);
-               padding:0 10px; font-size:10px; letter-spacing:3px; font-weight:bold; }
+               padding:0 10px; font-size:10px; letter-spacing:3px; font-weight:bold;
+               border-bottom:2px solid var(--sep); }
 
 /* ══ NAVBAR ══════════════════════════════════════════ */
 #navbar { position:absolute; bottom:0; left:0; right:0; height:52px;
@@ -261,8 +262,12 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
 .sec-title { font-size:9px; letter-spacing:3px; color:var(--fg2);
              border-bottom:1px solid var(--border2); padding-bottom:3px; margin:10px 0 6px; }
 .jadwal-row { padding:4px 0; border-bottom:1px solid var(--border2);
-              font-size:11px; line-height:1.5; overflow:hidden; white-space:nowrap; }
+              font-size:11px; line-height:1.5; overflow:hidden; white-space:nowrap;
+              position:relative; }
 .jadwal-row .jtime { color:var(--fg2); margin-right:8px; }
+.jadwal-row .jdel { float:right; background:transparent; border:none; color:var(--red);
+                    cursor:pointer; font-family:var(--font); font-size:10px;
+                    padding:0 4px; line-height:1.5; position:relative; z-index:2; }
 .countdown-row { padding:4px 0; border-bottom:1px solid var(--border2); font-size:11px; }
 .countdown-row .cname { display:block; }
 .countdown-row .cdays { font-size:10px; color:var(--fg2); }
@@ -611,9 +616,19 @@ function setTheme(t) {
     document.getElementById("btn-theme-cute").className     = "theme-btn" + (t==="cute"     ? " active-theme" : "");
     document.getElementById("btn-theme-terminal").innerHTML = t==="terminal" ? "ACTIVE" : "SELECT";
     document.getElementById("btn-theme-cute").innerHTML     = t==="cute"     ? "ACTIVE" : "SELECT";
+    try { localStorage.setItem("eve_theme", t); } catch(e) {}
     loadQuote();
     updateGreeting();
 }
+/* Load saved theme on startup */
+(function() {
+    var saved = "";
+    try { saved = localStorage.getItem("eve_theme") || ""; } catch(e) {}
+    if (saved === "cute" || saved === "terminal") {
+        currentTheme = saved;
+        document.body.className = "theme-" + saved;
+    }
+})();
 
 /* ══ PANEL SWITCH ═══════════════════════════════════════════════ */
 var panelIds = ["rp-clock","rp-photo","rp-timer","rp-quote","rp-chat","rp-settings"];
@@ -672,6 +687,14 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 updateClock();
+/* Apply saved theme state to buttons, then update greeting */
+(function() {
+    var t = currentTheme;
+    document.getElementById("btn-theme-terminal").className = "theme-btn" + (t==="terminal" ? " active-theme" : "");
+    document.getElementById("btn-theme-cute").className     = "theme-btn" + (t==="cute"     ? " active-theme" : "");
+    document.getElementById("btn-theme-terminal").innerHTML = t==="terminal" ? "ACTIVE" : "SELECT";
+    document.getElementById("btn-theme-cute").innerHTML     = t==="cute"     ? "ACTIVE" : "SELECT";
+})();
 updateGreeting();
 
 /* ══ EVE CHAT ═══════════════════════════════════════════════════ */
@@ -807,8 +830,23 @@ function renderJadwal(items) {
     var el = document.getElementById("jadwal-panel-list");
     if (!items.length) { el.innerHTML='<span class="empty-msg">JADWAL KOSONG</span>'; return; }
     var html="";
-    for(var i=0;i<items.length;i++) html+='<div class="jadwal-row"><span class="jtime">'+items[i].time+'</span>'+items[i].task.toUpperCase()+'</div>';
+    for(var i=0;i<items.length;i++) {
+        html+='<div class="jadwal-row">'
+            +'<button class="jdel" onclick="deleteJadwal(\''+items[i].task.replace(/'/g,"\\'")+'\')" title="Hapus">✕</button>'
+            +'<span class="jtime">'+items[i].time+'</span>'
+            +items[i].task.toUpperCase()
+            +'</div>';
+    }
     el.innerHTML=html;
+}
+function deleteJadwal(task) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST","/eve",true);
+    xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState===4) { loadSchedule(); }
+    };
+    xhr.send("message="+encodeURIComponent("hapus "+task)+"&theme="+encodeURIComponent(currentTheme));
 }
 function renderEvents(events) {
     var el = document.getElementById("events-panel-list");
