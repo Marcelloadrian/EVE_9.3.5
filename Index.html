@@ -817,14 +817,13 @@ function sendEveGreeting() {
             lines.push(isCute ? "What can I help you with today? 💕" : "WHAT DO YOU NEED?");
         }
 
-        var fullMsg = lines.join("\n");
-
-        /* ── Write to chat display ── */
+        /* ── Chat display: one short line only ── */
+        var chatMsg = greetLine + (isCute ? " What can I help you with? 💕" : " WHAT DO YOU NEED?");
         var display = document.getElementById("chat-display");
-        display.innerText += "\n" + fullMsg;
+        display.innerText += "\n" + chatMsg;
         display.scrollTop = display.scrollHeight;
 
-        /* ── Show banner ── */
+        /* ── Banner: full detail ── */
         var banner = document.getElementById("eve-greeting-banner");
         var bannerText = document.getElementById("eve-greeting-text");
         bannerText.innerHTML = lines.join("<br>");
