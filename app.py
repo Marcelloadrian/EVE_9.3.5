@@ -83,12 +83,21 @@ def sb_get_user(username):
         return res.data[0] if res.data else None
     except: return None
 
-def sb_create_user(username, pw_hash):
+def sb_get_user_by_ip(ip_hash):
+    """Return user row if this IP hash already registered."""
+    if not supa: return None
+    try:
+        res = supa.table("users").select("username").eq("ip_hash", ip_hash).execute()
+        return res.data[0] if res.data else None
+    except: return None
+
+def sb_create_user(username, pw_hash, ip_hash=""):
     if not supa: return False
     try:
         supa.table("users").insert({
             "username": username.lower(),
             "pw_hash":  pw_hash,
+            "ip_hash":  ip_hash,
             "joined":   datetime.now().isoformat()
         }).execute()
         return True
@@ -275,10 +284,24 @@ def register():
     if not supa:
         return jsonify({"success": False, "reply": "DATABASE NOT CONNECTED."}), 503
 
+    # ── IP lock ──────────────────────────────────────────────────────────────
+    raw_ip  = request.headers.get("X-Forwarded-For", request.remote_addr or "")
+    real_ip = raw_ip.split(",")[0].strip()
+    ip_hash = hashlib.sha256(real_ip.encode()).hexdigest() if real_ip else ""
+
+    if ip_hash:
+        existing = sb_get_user_by_ip(ip_hash)
+        if existing:
+            return jsonify({
+                "success": False,
+                "reply": "REGISTRATION LIMIT REACHED FOR THIS NETWORK."
+            }), 403
+    # ─────────────────────────────────────────────────────────────────────────
+
     if sb_get_user(username):
         return jsonify({"success": False, "reply": "USERNAME ALREADY TAKEN."}), 409
 
-    ok = sb_create_user(username, hash_pw(password))
+    ok = sb_create_user(username, hash_pw(password), ip_hash)
     if not ok:
         return jsonify({"success": False, "reply": "DATABASE ERROR. TRY AGAIN."}), 500
     return jsonify({"success": True, "reply": "WELCOME, " + username.upper() + ". YOU ARE NOW REGISTERED."})
