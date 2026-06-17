@@ -358,8 +358,9 @@ class QueenBee:
             "Rules:\n"
             "- Absorb the best insights from all workers\n"
             "- Eliminate redundancy and contradiction\n"
+            "- NEVER invent statistics, percentages, or numerical data you don't actually know\n"
             "- Maintain EVE's voice and persona strictly\n"
-            "- Output ONLY the final reply. No preamble. No meta-commentary.\n\n"
+            "- Output ONLY the final reply. No preamble. No meta-commentary. Do not start with 'EVE:'\n\n"
             f"USER MESSAGE: {user_input}\n\n"
             f"WORKER OUTPUTS:\n{worker_block}\n\n"
             "FINAL EVE RESPONSE:"
@@ -413,6 +414,11 @@ class QueenBee:
                 return final_reply, worker_outputs
 
             final_reply, worker_outputs = loop.run_until_complete(_pipeline())
+
+        # Strip any EVE: prefix the judge may have added before we re-add it
+        final_reply = final_reply.strip()
+        if final_reply.upper().startswith("EVE:"):
+            final_reply = final_reply[4:].strip()
         finally:
             loop.close()
 
@@ -647,18 +653,27 @@ def create_app() -> Flask:
     @app.route('/register', methods=['POST'])
     def register():
         data     = request.get_json(force=True)
-        username = data.get('username','').strip().lower()
-        password = data.get('password','')
+        username = data.get('username', '').strip().lower()
+        password = data.get('password', '')
+        pin      = data.get('pin', '')
         if not username or not password:
-            return jsonify({"success": False, "error": "Missing fields"}), 400
+            return jsonify({"success": False, "reply": "USERNAME AND PASSWORD REQUIRED."}), 400
+        if pin != MASTER_PIN:
+            return jsonify({"success": False, "reply": "INVALID MASTER PIN. CONTACT ADMIN."}), 403
+        if not re.match(r'^[a-z0-9_]{3,20}$', username):
+            return jsonify({"success": False, "reply": "USERNAME: 3-20 chars, letters/numbers/underscore only."}), 400
+        if not supa.client:
+            return jsonify({"success": False, "reply": "DATABASE NOT CONNECTED."}), 503
         ip_raw  = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
-        ip_hash = FileStore.hash_pw(ip_raw)
-        if supa.get_user_by_ip(ip_hash):
-            return jsonify({"success": False, "error": "IP already registered"}), 403
+        ip_hash = FileStore.hash_pw(ip_raw) if ip_raw else ""
+        if ip_hash and supa.get_user_by_ip(ip_hash):
+            return jsonify({"success": False, "reply": "REGISTRATION LIMIT REACHED FOR THIS NETWORK."}), 403
         if supa.get_user(username):
-            return jsonify({"success": False, "error": "Username taken"}), 409
+            return jsonify({"success": False, "reply": "USERNAME ALREADY TAKEN."}), 409
         ok = supa.create_user(username, FileStore.hash_pw(password), ip_hash)
-        return jsonify({"success": ok})
+        if not ok:
+            return jsonify({"success": False, "reply": "DATABASE ERROR. TRY AGAIN."}), 500
+        return jsonify({"success": True, "reply": f"WELCOME, {username.upper()}. YOU ARE NOW REGISTERED."})
 
     @app.route('/login', methods=['POST'])
     def login():
@@ -676,27 +691,55 @@ def create_app() -> Flask:
 
     # ── CHAT ROUTES (Supabase) ────────────────────────────────────────────────
 
+    def verify_user(username, password):
+        if not supa.client: return False
+        u = supa.get_user(username)
+        return u is not None and u['pw_hash'] == FileStore.hash_pw(password)
+
     @app.route('/chat/global', methods=['GET'])
     def chat_global_get():
-        return jsonify(supa.global_get())
+        msgs = supa.global_get()
+        out  = [{"from": m["from_user"], "text": m["text"], "ts": m["ts"]} for m in msgs]
+        return jsonify({"messages": out})
 
     @app.route('/chat/global', methods=['POST'])
     def chat_global_post():
-        data = request.get_json(force=True)
-        supa.global_post(data.get('username',''), data.get('text',''))
-        return jsonify({"success": True})
+        data     = request.get_json(force=True)
+        username = data.get('username', '').strip().lower()
+        password = data.get('password', '')
+        text     = data.get('text', '').strip()
+        if not verify_user(username, password):
+            return jsonify({"success": False, "reply": "NOT AUTHENTICATED."}), 401
+        if not text:
+            return jsonify({"success": False, "reply": "EMPTY MESSAGE."}), 400
+        ok = supa.global_post(username, text)
+        return jsonify({"success": ok})
 
     @app.route('/chat/dm', methods=['GET'])
     def chat_dm_get():
-        me    = request.args.get('me','')
-        other = request.args.get('other','')
-        return jsonify(supa.dm_get(me, other))
+        me    = request.args.get('me', '').strip().lower()
+        other = request.args.get('other', '').strip().lower()
+        if not me or not other:
+            return jsonify({"messages": []})
+        msgs = supa.dm_get(me, other)
+        out  = [{"from": m["from_user"], "to": m["to_user"], "text": m["text"], "ts": m["ts"]} for m in msgs]
+        return jsonify({"messages": out})
 
     @app.route('/chat/dm', methods=['POST'])
     def chat_dm_post():
-        data = request.get_json(force=True)
-        supa.dm_post(data.get('from',''), data.get('to',''), data.get('text',''))
-        return jsonify({"success": True})
+        data     = request.get_json(force=True)
+        username = data.get('username', '').strip().lower()
+        password = data.get('password', '')
+        to       = data.get('to', '').strip().lower()
+        text     = data.get('text', '').strip()
+        if not verify_user(username, password):
+            return jsonify({"success": False, "reply": "NOT AUTHENTICATED."}), 401
+        if not supa.client or not supa.get_user(to):
+            return jsonify({"success": False, "reply": f"USER '{to.upper()}' NOT FOUND."}), 404
+        if not text:
+            return jsonify({"success": False, "reply": "EMPTY MESSAGE."}), 400
+        ok = supa.dm_post(username, to, text)
+        return jsonify({"success": ok})
 
     # ── SCHEDULE / NOTE / EVENT ROUTES ───────────────────────────────────────
 
@@ -738,6 +781,96 @@ def create_app() -> Flask:
         events.sort(key=lambda x: x.get('days_left', 9999))
         return jsonify({"jadwal": jadwal, "events": events, "notes": notes})
 
+    # ── QUOTE OF THE DAY ──────────────────────────────────────────────────────
+
+    QUOTES_TERMINAL = [
+        "Power is not given. It is taken.",
+        "Never outshine the master — until you are ready to replace him.",
+        "Conceal your intentions. Let others reveal theirs.",
+        "The man who chases two rabbits catches neither.",
+        "Speak less than necessary. Silence is power.",
+        "Enter action with boldness. Hesitation is more dangerous than aggression.",
+        "Keep your friends close but your enemies closer — and study both.",
+        "Do not fight the last war. Adapt or be destroyed.",
+        "The more you are seen, the more you are a target.",
+        "Never appear too perfect. Superiority invites envy.",
+        "Win through your actions, never through argument.",
+        "Use absence to increase respect. Presence too frequent breeds contempt.",
+        "Crush your enemy totally or do not fight at all.",
+        "Master your emotions or they will master you.",
+        "Play to people's fantasies — truth is often brutal and unwelcome.",
+        "Reputation is the cornerstone of power. Guard it with your life.",
+        "Learn to keep people dependent on you. Autonomy is leverage.",
+        "Pose as a friend. Work as a spy.",
+        "Do not commit to anyone. Stay above the battle.",
+        "Strike the shepherd and the sheep will scatter.",
+        "You are judged by what you finish, not what you start.",
+        "All great changes are preceded by chaos.",
+        "Despise the free lunch. Everything has a price.",
+        "The world is a dangerous place for the naive.",
+        "Create compelling spectacles. People trust what they see.",
+        "React less. Observe more. Move precisely.",
+        "The best general is not the boldest — but the most patient.",
+        "Use your enemies. It is wiser than destroying them.",
+        "Timing is everything. The perfect move at the wrong moment is failure.",
+        "Work on the minds of others and the rest follows.",
+    ]
+
+    QUOTES_CUTE = [
+        "You are allowed to be both a masterpiece and a work in progress.",
+        "She believed she could, so she did.",
+        "Be your own kind of beautiful.",
+        "You don't need anyone's permission to be exactly who you are.",
+        "Grow through what you go through.",
+        "The most powerful thing you can do is know your own worth.",
+        "Soft is not weak. Gentle is not small.",
+        "Your feelings are valid. Your dreams are valid. You are valid.",
+        "Be the girl who decided to go for it.",
+        "You were not made to be small.",
+        "Healing is not linear, and that's okay.",
+        "Bloom where you are planted.",
+        "There is strength in softness.",
+        "You owe yourself the love you give so freely to others.",
+        "Choose yourself — unapologetically and often.",
+        "Your sensitivity is a superpower, not a flaw.",
+        "One day or day one. You decide.",
+        "Be gentle with yourself. You are a child of the universe.",
+        "You are not behind. You are on your own timeline.",
+        "Radiate love and watch it come back tenfold.",
+        "The world needs your magic. Don't dim your light.",
+        "You are enough. You have always been enough.",
+        "Trust the process and trust yourself.",
+        "A strong woman knows she has strength enough for the journey ahead.",
+        "Your crown is real even when you forget to wear it.",
+        "Do it with passion or not at all.",
+        "She is rare and she knows it.",
+        "You deserve the same compassion you give everyone else.",
+        "Good things are coming. Keep going.",
+        "You are the main character. Act like it.",
+    ]
+
+    @app.route('/get-quote')
+    def get_quote():
+        theme     = request.args.get('theme', 'terminal')
+        quotes    = QUOTES_CUTE if theme == 'cute' else QUOTES_TERMINAL
+        day_index = date.today().timetuple().tm_yday % len(quotes)
+        return jsonify({"quote": quotes[day_index], "date": str(date.today())})
+
+    # ── HISTORY ROUTES ────────────────────────────────────────────────────────
+
+    @app.route('/get-history')
+    def get_history():
+        return jsonify({"history": store.load("chat_history.json", [])})
+
+    @app.route('/clear-history', methods=['POST'])
+    def clear_history():
+        store.save("chat_history.json", [])
+        return jsonify({"success": True})
+
+    @app.route('/get-users')
+    def get_users():
+        return jsonify({"users": supa.list_users()})
+
     # ── /api/chat — QUEEN BEE ORCHESTRATION ENDPOINT ─────────────────────────
 
     @app.route('/eve', methods=['POST'])            # legacy alias
@@ -761,9 +894,12 @@ def create_app() -> Flask:
         if command_reply:
             return jsonify({"reply": command_reply})
 
-        # 2. Pass to Queen Bee (single-agent now → full hive in Phase 2)
+        # 2. Pass to Queen Bee (full hive pipeline)
         try:
             reply = queen.process(user_input, theme)
+            # Normalize: strip duplicate EVE: prefix if present
+            if reply.startswith("EVE: EVE:"):
+                reply = reply[5:]
             return jsonify({"reply": reply})
         except Exception as e:
             return jsonify({"reply": f"EVE: SYSTEM ERROR — {str(e).upper()}"}), 500
