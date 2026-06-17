@@ -854,72 +854,6 @@ def create_app() -> Flask:
 
     # ── QUOTE OF THE DAY ──────────────────────────────────────────────────────
 
-    QUOTES_TERMINAL = [
-        "Power is not given. It is taken.",
-        "Never outshine the master — until you are ready to replace him.",
-        "Conceal your intentions. Let others reveal theirs.",
-        "The man who chases two rabbits catches neither.",
-        "Speak less than necessary. Silence is power.",
-        "Enter action with boldness. Hesitation is more dangerous than aggression.",
-        "Keep your friends close but your enemies closer — and study both.",
-        "Do not fight the last war. Adapt or be destroyed.",
-        "The more you are seen, the more you are a target.",
-        "Never appear too perfect. Superiority invites envy.",
-        "Win through your actions, never through argument.",
-        "Use absence to increase respect. Presence too frequent breeds contempt.",
-        "Crush your enemy totally or do not fight at all.",
-        "Master your emotions or they will master you.",
-        "Play to people's fantasies — truth is often brutal and unwelcome.",
-        "Reputation is the cornerstone of power. Guard it with your life.",
-        "Learn to keep people dependent on you. Autonomy is leverage.",
-        "Pose as a friend. Work as a spy.",
-        "Do not commit to anyone. Stay above the battle.",
-        "Strike the shepherd and the sheep will scatter.",
-        "You are judged by what you finish, not what you start.",
-        "All great changes are preceded by chaos.",
-        "Despise the free lunch. Everything has a price.",
-        "The world is a dangerous place for the naive.",
-        "Create compelling spectacles. People trust what they see.",
-        "React less. Observe more. Move precisely.",
-        "The best general is not the boldest — but the most patient.",
-        "Use your enemies. It is wiser than destroying them.",
-        "Timing is everything. The perfect move at the wrong moment is failure.",
-        "Work on the minds of others and the rest follows.",
-    ]
-
-    QUOTES_CUTE = [
-        "You are allowed to be both a masterpiece and a work in progress.",
-        "She believed she could, so she did.",
-        "Be your own kind of beautiful.",
-        "You don't need anyone's permission to be exactly who you are.",
-        "Grow through what you go through.",
-        "The most powerful thing you can do is know your own worth.",
-        "Soft is not weak. Gentle is not small.",
-        "Your feelings are valid. Your dreams are valid. You are valid.",
-        "Be the girl who decided to go for it.",
-        "You were not made to be small.",
-        "Healing is not linear, and that's okay.",
-        "Bloom where you are planted.",
-        "There is strength in softness.",
-        "You owe yourself the love you give so freely to others.",
-        "Choose yourself — unapologetically and often.",
-        "Your sensitivity is a superpower, not a flaw.",
-        "One day or day one. You decide.",
-        "Be gentle with yourself. You are a child of the universe.",
-        "You are not behind. You are on your own timeline.",
-        "Radiate love and watch it come back tenfold.",
-        "The world needs your magic. Don't dim your light.",
-        "You are enough. You have always been enough.",
-        "Trust the process and trust yourself.",
-        "A strong woman knows she has strength enough for the journey ahead.",
-        "Your crown is real even when you forget to wear it.",
-        "Do it with passion or not at all.",
-        "She is rare and she knows it.",
-        "You deserve the same compassion you give everyone else.",
-        "Good things are coming. Keep going.",
-        "You are the main character. Act like it.",
-    ]
-
     @app.route('/get-quote')
     def get_quote():
         theme = request.args.get('theme', 'terminal')
@@ -974,6 +908,53 @@ def create_app() -> Flask:
             return jsonify({"reply": reply})
         except Exception as e:
             return jsonify({"reply": f"EVE: SYSTEM ERROR — {str(e).upper()}"}), 500
+
+    # ── DEBUG ROUTES ──────────────────────────────────────────────────────────
+
+    @app.route('/debug-hive')
+    def debug_hive():
+        """Shows live hive pipeline output — worker outputs + final reply."""
+        test_input = request.args.get('q', 'what should i focus on today')
+        theme      = request.args.get('theme', 'terminal')
+        try:
+            result  = queen.process(test_input, theme)
+            history = store.load("chat_history.json", [])
+            last    = history[-1] if history else {}
+            workers = last.get("workers", [])
+            return jsonify({
+                "status":            "ok",
+                "test_input":        test_input,
+                "final_reply":       result,
+                "worker_1_analytical": workers[0] if len(workers) > 0 else "N/A",
+                "worker_2_creative":   workers[1] if len(workers) > 1 else "N/A",
+                "worker_3_critical":   workers[2] if len(workers) > 2 else "N/A",
+                "worker_count":      len(workers),
+                "gemini_active":     bool(os.environ.get("GEMINI_API_KEY")),
+                "groq_active":       bool(os.environ.get("GROQ_API_KEY")),
+                "supabase_logging":  supa.client is not None,
+                "memory_turns":      len(store.load("chat_history.json", [])),
+            })
+        except Exception as e:
+            return jsonify({"status": "error", "detail": str(e)}), 500
+
+    @app.route('/debug-memory')
+    def debug_memory():
+        """Shows current EVE memory state — chat history + Supabase eve_logs."""
+        history  = store.load("chat_history.json", [])
+        sb_logs  = supa.eve_logs_get(limit=10)
+        return jsonify({
+            "local_history_turns":    len(history),
+            "last_5_local": [
+                {"user": h.get("user",""), "eve": h.get("eve","")[:80], "ts": h.get("ts","")}
+                for h in history[-5:]
+            ],
+            "supabase_logs_total":    len(sb_logs),
+            "last_5_supabase": [
+                {"user_msg": r.get("user_msg",""), "ts": r.get("ts","")}
+                for r in sb_logs[-5:]
+            ],
+            "note": "AI currently reads local history (last 10 turns). Supabase logs are write-only until Phase 3 Drive ingestion."
+        })
 
     return app
 
