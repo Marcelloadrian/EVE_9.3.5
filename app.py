@@ -404,23 +404,22 @@ class QueenBee:
         messages = self._build_messages(user_input, theme)
 
         # Run full async hive pipeline in a fresh event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
             async def _pipeline():
                 worker_outputs = await self.hive_orchestrator(messages, n_workers=3)
                 final_reply    = await self.consensus_judge(user_input, worker_outputs, theme)
                 return final_reply, worker_outputs
 
             final_reply, worker_outputs = loop.run_until_complete(_pipeline())
+        finally:
+            loop.close()
 
         # Strip any EVE: prefix the judge may have added before we re-add it
         final_reply = final_reply.strip()
         if final_reply.upper().startswith("EVE:"):
             final_reply = final_reply[4:].strip()
-        finally:
-            loop.close()
 
         # Persist to history + Supabase
         history = self.store.load("chat_history.json", [])
