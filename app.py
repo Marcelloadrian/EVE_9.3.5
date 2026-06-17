@@ -135,7 +135,9 @@ class SupabaseClient:
                 "ts":        datetime.now().isoformat()
             }).execute()
             return True
-        except: return False
+        except Exception as e:
+            print(f"EVE_LOG_POST ERROR: {e}")  # TEMP DEBUG — remove after Phase 3 verified
+            return False
 
     def eve_logs_get(self, limit=200):
         """Fetch recent EVE logs for Drive ingestion pipeline."""
