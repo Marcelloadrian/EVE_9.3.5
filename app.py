@@ -166,13 +166,16 @@ class SupabaseClient:
 
 class DriveClient:
     """
-    Skeleton for Google Drive API integration.
+    Google Drive API integration.
     Authenticates via a Service Account JSON stored in GOOGLE_SA_JSON env var.
-    Phase 3 will implement: ingest_to_drive(), hierarchical summarization.
+    Phase 3: ingest_to_drive() — hierarchical Daily/Weekly/Monthly summarization,
+    written as .md files into DRIVE_FOLDER_ID/{Daily,Weekly,Monthly}.
     """
     def __init__(self):
-        self.service = None
-        self.error   = ""
+        self.service   = None
+        self.error     = ""
+        self.folder_id = os.environ.get("DRIVE_FOLDER_ID", "")
+        self._subfolder_cache = {}
         self._init_service()
 
     def _init_service(self):
@@ -181,6 +184,9 @@ class DriveClient:
             self.error = "GOOGLE_SA_JSON env var not set"
             print(f"DRIVE: {self.error}")
             return
+        if not self.folder_id:
+            self.error = "DRIVE_FOLDER_ID env var not set"
+            print(f"DRIVE: {self.error}")
         try:
             import json as _json
             from google.oauth2 import service_account
@@ -196,12 +202,88 @@ class DriveClient:
             print(f"DRIVE ERROR: {self.error}")
 
     def is_ready(self):
-        return self.service is not None
+        return self.service is not None and bool(self.folder_id)
 
-    # Phase 3 stubs
+    # ── FOLDER HELPERS ───────────────────────────────────────────────────────
+
+    def _get_or_create_subfolder(self, name: str) -> str:
+        """Returns folder id for Daily/Weekly/Monthly under root DRIVE_FOLDER_ID, creating if needed."""
+        if name in self._subfolder_cache:
+            return self._subfolder_cache[name]
+        q = (f"'{self.folder_id}' in parents and name = '{name}' "
+             "and mimeType = 'application/vnd.google-apps.folder' and trashed = false")
+        res = self.service.files().list(q=q, fields="files(id,name)").execute()
+        files = res.get("files", [])
+        if files:
+            fid = files[0]["id"]
+        else:
+            meta = {"name": name, "mimeType": "application/vnd.google-apps.folder",
+                     "parents": [self.folder_id]}
+            fid = self.service.files().create(body=meta, fields="id").execute()["id"]
+        self._subfolder_cache[name] = fid
+        return fid
+
+    def _find_file(self, filename: str, parent_id: str):
+        q = f"'{parent_id}' in parents and name = '{filename}' and trashed = false"
+        res = self.service.files().list(q=q, fields="files(id,name)").execute()
+        files = res.get("files", [])
+        return files[0]["id"] if files else None
+
+    def _upsert_text_file(self, filename: str, content: str, parent_id: str, append: bool = False):
+        """Create or update a text file in Drive. If append=True and file exists, prepend new content above old."""
+        from googleapiclient.http import MediaIoBaseUpload
+        import io
+        existing_id = self._find_file(filename, parent_id)
+        if existing_id and append:
+            old = self.service.files().get_media(fileId=existing_id).execute().decode("utf-8")
+            content = content + "\n\n---\n\n" + old
+        media = MediaIoBaseUpload(io.BytesIO(content.encode("utf-8")), mimetype="text/markdown", resumable=False)
+        if existing_id:
+            self.service.files().update(fileId=existing_id, media_body=media).execute()
+        else:
+            meta = {"name": filename, "parents": [parent_id], "mimeType": "text/markdown"}
+            self.service.files().create(body=meta, media_body=media, fields="id").execute()
+
+    # ── INGESTION ENTRY POINT ───────────────────────────────────────────────
+
     def ingest_to_drive(self, logs: list, period: str = "daily") -> dict:
-        """STUB — implemented in Phase 3."""
-        raise NotImplementedError("Drive ingestion implemented in Phase 3")
+        """
+        Writes a hierarchical summary file for the given period ('daily'|'weekly'|'monthly').
+        `logs` = list of eve_logs rows: {id, user_msg, eve_reply, theme, ts}.
+        Summarization text is produced by Summarizer (Gemini Flash) before calling this.
+        Returns {"success": bool, "file": filename, "error": str|None}.
+        """
+        if not self.is_ready():
+            return {"success": False, "file": None, "error": self.error or "Drive not ready"}
+        if not logs:
+            return {"success": False, "file": None, "error": "No logs to ingest"}
+
+        folder_name = {"daily": "Daily", "weekly": "Weekly", "monthly": "Monthly"}.get(period, "Daily")
+        subfolder_id = self._get_or_create_subfolder(folder_name)
+
+        today = date.today()
+        if period == "daily":
+            filename = f"{today.isoformat()}.md"
+        elif period == "weekly":
+            iso = today.isocalendar()
+            filename = f"{iso[0]}-W{iso[1]:02d}.md"
+        else:
+            filename = f"{today.strftime('%Y-%m')}.md"
+
+        try:
+            body = self._render_markdown(logs, period)
+            self._upsert_text_file(filename, body, subfolder_id, append=False)
+            return {"success": True, "file": f"{folder_name}/{filename}", "error": None}
+        except Exception as e:
+            return {"success": False, "file": None, "error": str(e)}
+
+    @staticmethod
+    def _render_markdown(logs: list, period: str) -> str:
+        header = f"# EVE {period.upper()} SUMMARY — {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
+        lines  = [header]
+        for row in logs:
+            lines.append(f"**[{row.get('ts','')}]**\nUser: {row.get('user_msg','')}\nEVE: {row.get('eve_reply','')}\n")
+        return "\n".join(lines)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -436,6 +518,139 @@ class QueenBee:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# MEMORY PIPELINE — Phase 3: hierarchical summarization + Supabase purge
+# ══════════════════════════════════════════════════════════════════════════════
+
+class MemoryPipeline:
+    """
+    Daily/Weekly/Monthly ingestion pipeline.
+    1. Pull eve_logs from Supabase (active table).
+    2. Summarize via Gemini Flash into a condensed markdown digest.
+    3. Push digest to Google Drive (DriveClient.ingest_to_drive).
+    4. Purge ingested rows from Supabase eve_logs ONLY on Drive success.
+    """
+
+    GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+
+    SUMMARY_PROMPTS = {
+        "daily":   "Summarize today's conversation log into concise bullet points. Capture key decisions, tasks, and recurring themes. Be factual, no invented data.",
+        "weekly":  "Summarize this week's daily digests into a higher-level weekly overview. Identify patterns, completed tasks, and unresolved threads.",
+        "monthly": "Summarize this month's weekly digests into a strategic monthly retrospective. Focus on trends, growth, and recurring blockers.",
+    }
+
+    def __init__(self, supa: SupabaseClient, drive: DriveClient):
+        self.supa = supa
+        self.drive = drive
+        self.gemini_key = os.environ.get("GEMINI_API_KEY", "")
+
+    # ── SUMMARIZATION (Gemini Flash) ─────────────────────────────────────────
+
+    def _summarize(self, raw_text: str, period: str) -> str:
+        """Condenses raw_text via Gemini Flash. Falls back to raw_text if no key/error."""
+        if not self.gemini_key or not raw_text.strip():
+            return raw_text
+        instruction = self.SUMMARY_PROMPTS.get(period, self.SUMMARY_PROMPTS["daily"])
+        prompt = f"{instruction}\n\n---\n\n{raw_text}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}]}
+        url = f"{self.GEMINI_URL}?key={self.gemini_key}"
+        try:
+            resp = requests.post(url, json=payload, timeout=30)
+            data = resp.json()
+            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception as e:
+            print(f"MEMORY SUMMARIZE ERROR: {e}")
+            return raw_text  # fail-open: ingest raw rather than lose data
+
+    @staticmethod
+    def _flatten_logs(logs: list) -> str:
+        return "\n".join(
+            f"[{r.get('ts','')}] User: {r.get('user_msg','')} | EVE: {r.get('eve_reply','')}"
+            for r in logs
+        )
+
+    # ── DAILY: Supabase eve_logs → Drive/Daily/<date>.md, then purge ────────
+
+    def run_daily(self) -> dict:
+        logs = self.supa.eve_logs_get(limit=500)
+        if not logs:
+            return {"success": False, "stage": "daily", "error": "No eve_logs to ingest"}
+
+        raw     = self._flatten_logs(logs)
+        digest  = self._summarize(raw, "daily")
+        summarized_rows = [{
+            "ts": datetime.now().isoformat(),
+            "user_msg": "[DAILY DIGEST]",
+            "eve_reply": digest,
+        }]
+        drive_res = self.drive.ingest_to_drive(summarized_rows, period="daily")
+
+        if not drive_res["success"]:
+            # Do NOT purge if Drive write failed — protects data from loss
+            return {"success": False, "stage": "daily", "error": drive_res["error"], "purged": 0}
+
+        ids = [r["id"] for r in logs if "id" in r]
+        purged = self.supa.eve_logs_purge(ids)
+        return {"success": True, "stage": "daily", "file": drive_res["file"],
+                "rows_ingested": len(logs), "purged": len(ids) if purged else 0}
+
+    # ── WEEKLY: Drive/Daily/*.md (last 7) → Drive/Weekly/<iso-week>.md ───────
+
+    def run_weekly(self) -> dict:
+        if not self.drive.is_ready():
+            return {"success": False, "stage": "weekly", "error": self.drive.error or "Drive not ready"}
+        try:
+            daily_folder = self.drive._get_or_create_subfolder("Daily")
+            q = f"'{daily_folder}' in parents and trashed = false"
+            res = self.drive.service.files().list(
+                q=q, orderBy="createdTime desc", pageSize=7, fields="files(id,name)"
+            ).execute()
+            files = res.get("files", [])
+            if not files:
+                return {"success": False, "stage": "weekly", "error": "No daily digests found"}
+
+            combined = []
+            for f in files:
+                content = self.drive.service.files().get_media(fileId=f["id"]).execute().decode("utf-8")
+                combined.append(f"## {f['name']}\n{content}")
+            raw    = "\n\n".join(combined)
+            digest = self._summarize(raw, "weekly")
+            rows   = [{"ts": datetime.now().isoformat(), "user_msg": "[WEEKLY DIGEST]", "eve_reply": digest}]
+            drive_res = self.drive.ingest_to_drive(rows, period="weekly")
+            return {"success": drive_res["success"], "stage": "weekly",
+                     "file": drive_res.get("file"), "source_days": len(files), "error": drive_res.get("error")}
+        except Exception as e:
+            return {"success": False, "stage": "weekly", "error": str(e)}
+
+    # ── MONTHLY: Drive/Weekly/*.md (last 4-5) → Drive/Monthly/<yyyy-mm>.md ──
+
+    def run_monthly(self) -> dict:
+        if not self.drive.is_ready():
+            return {"success": False, "stage": "monthly", "error": self.drive.error or "Drive not ready"}
+        try:
+            weekly_folder = self.drive._get_or_create_subfolder("Weekly")
+            q = f"'{weekly_folder}' in parents and trashed = false"
+            res = self.drive.service.files().list(
+                q=q, orderBy="createdTime desc", pageSize=5, fields="files(id,name)"
+            ).execute()
+            files = res.get("files", [])
+            if not files:
+                return {"success": False, "stage": "monthly", "error": "No weekly digests found"}
+
+            combined = []
+            for f in files:
+                content = self.drive.service.files().get_media(fileId=f["id"]).execute().decode("utf-8")
+                combined.append(f"## {f['name']}\n{content}")
+            raw    = "\n\n".join(combined)
+            digest = self._summarize(raw, "monthly")
+            rows   = [{"ts": datetime.now().isoformat(), "user_msg": "[MONTHLY DIGEST]", "eve_reply": digest}]
+            drive_res = self.drive.ingest_to_drive(rows, period="monthly")
+            return {"success": drive_res["success"], "stage": "monthly",
+                     "file": drive_res.get("file"), "source_weeks": len(files), "error": drive_res.get("error")}
+        except Exception as e:
+            return {"success": False, "stage": "monthly", "error": str(e)}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # COMMAND PARSER (non-AI intent detection — unchanged logic, class-wrapped)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -652,6 +867,7 @@ def create_app() -> Flask:
     drive   = DriveClient()
     store   = FileStore(BASE_DIR)
     queen   = QueenBee(supa, drive, store)
+    memory  = MemoryPipeline(supa, drive)
     parser  = CommandParser(store)
 
     MASTER_PASSWORD = os.environ.get("UPLOAD_PASSWORD", "rahasia123")
@@ -907,6 +1123,25 @@ def create_app() -> Flask:
             return jsonify({"reply": reply})
         except Exception as e:
             return jsonify({"reply": f"EVE: SYSTEM ERROR — {str(e).upper()}"}), 500
+
+    # ── MEMORY PIPELINE ROUTES (Phase 3) ─────────────────────────────────────
+    # Trigger externally via Render Cron Job / cron-job.org hitting these URLs.
+    # Protect with a shared secret header in production if exposed publicly.
+
+    @app.route('/cron/ingest-daily', methods=['POST', 'GET'])
+    def cron_ingest_daily():
+        result = memory.run_daily()
+        return jsonify(result), (200 if result.get("success") else 500)
+
+    @app.route('/cron/ingest-weekly', methods=['POST', 'GET'])
+    def cron_ingest_weekly():
+        result = memory.run_weekly()
+        return jsonify(result), (200 if result.get("success") else 500)
+
+    @app.route('/cron/ingest-monthly', methods=['POST', 'GET'])
+    def cron_ingest_monthly():
+        result = memory.run_monthly()
+        return jsonify(result), (200 if result.get("success") else 500)
 
     # ── DEBUG ROUTES ──────────────────────────────────────────────────────────
 
