@@ -4,7 +4,9 @@ import requests
 import re
 import hashlib
 import asyncio
+import aiohttp
 from datetime import datetime, date
+from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -234,22 +236,28 @@ class FileStore:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# QUEEN BEE — ORCHESTRATOR SHELL (Phase 2 fills the hive logic)
+# QUEEN BEE — FULL HIVE MIND ORCHESTRATOR (Phase 2)
 # ══════════════════════════════════════════════════════════════════════════════
 
 class QueenBee:
     """
-    Central orchestrator for the Hive Mind multi-agent pipeline.
-
-    Phase 2 will implement:
-      - hive_orchestrator(): 3 concurrent Llama 3.3 Worker Bees via asyncio.gather
-      - consensus_judge():   Gemini Flash synthesizes Worker outputs into final reply
+    Hive Mind pipeline:
+      1. hive_orchestrator()  — 3 concurrent Llama 3.3 Worker Bees (Groq/asyncio)
+      2. consensus_judge()    — Gemini Flash synthesizes Worker outputs → final reply
+      3. process()            — sync entry point for Flask routes
     """
 
-    GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
+    GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
+    GEMINI_URL   = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
     WORKER_MODEL = "llama-3.3-70b-versatile"
 
-    # Persona templates
+    # Worker Bee specializations — each sees the same user input from a different lens
+    WORKER_ROLES = [
+        "ANALYTICAL BEE: Prioritize logic, data, and structured reasoning. Be precise.",
+        "CREATIVE BEE: Prioritize novel angles, lateral thinking, and unexpected solutions.",
+        "CRITICAL BEE: Prioritize risk detection, flaws in reasoning, and worst-case scenarios.",
+    ]
+
     PERSONA_TERMINAL = (
         "IDENTITY: You are EVE, a ruthlessly efficient AI system — a strategic partner with full situational awareness.\n"
         "CHARACTER:\n"
@@ -271,29 +279,106 @@ class QueenBee:
     )
 
     def __init__(self, supa: SupabaseClient, drive: DriveClient, store: FileStore):
-        self.supa  = supa
-        self.drive = drive
-        self.store = store
-        self.groq_key = os.environ.get("GROQ_API_KEY", "")
+        self.supa      = supa
+        self.drive     = drive
+        self.store     = store
+        self.groq_key  = os.environ.get("GROQ_API_KEY", "")
+        self.gemini_key = os.environ.get("GEMINI_API_KEY", "")
 
-    # ── PHASE 2 STUBS ────────────────────────────────────────────────────────
+    # ── WORKER BEE (async, single) ────────────────────────────────────────────
+
+    async def _call_worker_async(
+        self,
+        session: aiohttp.ClientSession,
+        messages: list,
+        worker_role: str
+    ) -> str:
+        """Single async Groq/Llama call for one Worker Bee."""
+        # Inject worker specialization as the first system note
+        augmented = [messages[0].copy()]  # system persona
+        augmented[0]["content"] += f"\n\nYOUR ROLE THIS TURN: {worker_role}"
+        augmented += messages[1:]         # history + user message
+
+        payload = {"model": self.WORKER_MODEL, "messages": augmented, "max_tokens": 512}
+        headers = {
+            "Authorization": f"Bearer {self.groq_key}",
+            "Content-Type":  "application/json"
+        }
+        try:
+            async with session.post(self.GROQ_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            return f"[WORKER ERROR: {str(e)}]"
+
+    # ── HIVE ORCHESTRATOR (async, 3 concurrent workers) ───────────────────────
 
     async def hive_orchestrator(self, messages: list, n_workers: int = 3) -> list:
         """
-        STUB — Phase 2 implementation.
-        Spawns n_workers concurrent Llama 3.3 calls via asyncio.gather.
+        Spawns n_workers concurrent Llama 3.3 Worker Bees via asyncio.gather.
         Returns list of worker response strings.
         """
-        raise NotImplementedError("Hive orchestrator implemented in Phase 2")
+        async with aiohttp.ClientSession() as session:
+            tasks = [
+                self._call_worker_async(session, messages, self.WORKER_ROLES[i % len(self.WORKER_ROLES)])
+                for i in range(n_workers)
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        outputs = []
+        for r in results:
+            if isinstance(r, Exception):
+                outputs.append(f"[WORKER EXCEPTION: {str(r)}]")
+            else:
+                outputs.append(str(r))
+        return outputs
+
+    # ── CONSENSUS JUDGE (Gemini Flash) ───────────────────────────────────────
 
     async def consensus_judge(self, user_input: str, worker_outputs: list, theme: str) -> str:
         """
-        STUB — Phase 2 implementation.
-        Gemini Flash reads all worker outputs and emits a single consensus reply.
+        Gemini Flash reads all 3 Worker outputs and synthesizes the final EVE reply.
         """
-        raise NotImplementedError("Consensus judge implemented in Phase 2")
+        if not self.gemini_key:
+            # Fallback: return best worker output if no Gemini key
+            return max(worker_outputs, key=len)
 
-    # ── ACTIVE: SINGLE-AGENT FALLBACK (current capability) ───────────────────
+        persona = self.PERSONA_CUTE if theme == "cute" else self.PERSONA_TERMINAL
+
+        worker_block = "\n\n".join([
+            f"WORKER {i+1} ({self.WORKER_ROLES[i].split(':')[0]}):\n{out}"
+            for i, out in enumerate(worker_outputs)
+        ])
+
+        judge_prompt = (
+            f"{persona}\n\n"
+            "You are the MAIN AGENT — the consensus judge of the EVE Hive Mind.\n"
+            "Three specialist Worker Bees have each analyzed the user's message.\n"
+            "Your job: synthesize their outputs into ONE definitive EVE response.\n"
+            "Rules:\n"
+            "- Absorb the best insights from all workers\n"
+            "- Eliminate redundancy and contradiction\n"
+            "- Maintain EVE's voice and persona strictly\n"
+            "- Output ONLY the final reply. No preamble. No meta-commentary.\n\n"
+            f"USER MESSAGE: {user_input}\n\n"
+            f"WORKER OUTPUTS:\n{worker_block}\n\n"
+            "FINAL EVE RESPONSE:"
+        )
+
+        payload = {"contents": [{"parts": [{"text": judge_prompt}]}]}
+        url     = f"{self.GEMINI_URL}?key={self.gemini_key}"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                    data = await resp.json()
+                    return data["candidates"][0]["content"]["parts"][0]["text"].strip().upper()
+        except Exception as e:
+            # Fallback to longest worker output on Gemini failure
+            print(f"GEMINI JUDGE ERROR: {e}")
+            return max(worker_outputs, key=len).upper()
+
+    # ── BUILD MESSAGES ────────────────────────────────────────────────────────
 
     def _build_messages(self, user_input: str, theme: str) -> list:
         persona  = self.PERSONA_CUTE if theme == "cute" else self.PERSONA_TERMINAL
@@ -305,31 +390,44 @@ class QueenBee:
         messages.append({"role": "user", "content": user_input})
         return messages
 
-    def call_worker(self, messages: list) -> str:
-        """Synchronous Groq/Llama call. Phase 2 converts this to async."""
-        if not self.groq_key:
-            return "EVE: GROQ_API_KEY NOT SET."
-        resp = requests.post(
-            self.GROQ_URL,
-            headers={"Authorization": f"Bearer {self.groq_key}",
-                     "Content-Type": "application/json"},
-            json={"model": self.WORKER_MODEL, "messages": messages}
-        )
-        return resp.json()["choices"][0]["message"]["content"].upper()
+    # ── SYNC ENTRY POINT (Flask-compatible) ──────────────────────────────────
 
     def process(self, user_input: str, theme: str = "terminal") -> str:
         """
-        Current single-agent path.
-        Phase 2 replaces this with the full hive pipeline.
+        Sync wrapper for the full async hive pipeline.
+        Flask calls this; asyncio runs the hive internally.
         """
-        messages   = self._build_messages(user_input, theme)
-        reply_text = self.call_worker(messages)
-        history    = self.store.load("chat_history.json", [])
-        history.append({"user": user_input, "eve": f"EVE: {reply_text}", "ts": str(datetime.now())})
+        if not self.groq_key:
+            return "EVE: GROQ_API_KEY NOT SET."
+
+        messages = self._build_messages(user_input, theme)
+
+        # Run full async hive pipeline in a fresh event loop
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            async def _pipeline():
+                worker_outputs = await self.hive_orchestrator(messages, n_workers=3)
+                final_reply    = await self.consensus_judge(user_input, worker_outputs, theme)
+                return final_reply, worker_outputs
+
+            final_reply, worker_outputs = loop.run_until_complete(_pipeline())
+        finally:
+            loop.close()
+
+        # Persist to history + Supabase
+        history = self.store.load("chat_history.json", [])
+        history.append({
+            "user":    user_input,
+            "eve":     f"EVE: {final_reply}",
+            "workers": worker_outputs,          # stored for Phase 3 summarization
+            "ts":      str(datetime.now())
+        })
         self.store.save("chat_history.json", history)
-        # Persist to Supabase for Phase 3 ingestion pipeline
-        self.supa.eve_log_post(user_input, f"EVE: {reply_text}", theme)
-        return f"EVE: {reply_text}"
+        self.supa.eve_log_post(user_input, f"EVE: {final_reply}", theme)
+
+        return f"EVE: {final_reply}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
