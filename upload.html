@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE UPLOAD</title>
+    <style>
+        body {
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .container {
+            border: 1px solid #0f0;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="password"],
+        input[type="file"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            font-family: 'Courier New', monospace;
+            box-sizing: border-box;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background: #00ff00;
+        }
+        .gallery {
+            margin-top: 30px;
+            border-top: 1px solid #0f0;
+            padding-top: 20px;
+        }
+        .gallery-item {
+            margin-bottom: 20px;
+            border: 1px solid #0f0;
+            padding: 10px;
+        }
+        .gallery-item img {
+            width: 100%;
+            max-height: 400px;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .gallery-item-caption {
+            margin-bottom: 10px;
+            word-wrap: break-word;
+        }
+        .gallery-item-time {
+            font-size: 12px;
+            color: #0a0;
+        }
+        .delete-btn {
+            background: #f00;
+            color: #fff;
+            padding: 8px 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            width: auto;
+            margin-top: 10px;
+        }
+        .delete-btn:hover {
+            background: #ff0000;
+        }
+        .status {
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #0f0;
+            display: none;
+        }
+        .status.success {
+            background: #001f00;
+            border-color: #0f0;
+            color: #0f0;
+            display: block;
+        }
+        .status.error {
+            background: #1f0000;
+            border-color: #f00;
+            color: #f00;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>EVE PHOTO CAROUSEL</h1>
+        
+        <div id="status" class="status"></div>
+
+        <div class="form-group">
+            <label for="file">SELECT IMAGE:</label>
+            <input type="file" id="file" accept="image/png,image/jpeg,image/gif,image/webp">
+            <small style="color: #0a0;">Allowed: PNG, JPG, GIF, WEBP (max 16MB)</small>
+        </div>
+
+        <div class="form-group">
+            <label for="caption">CAPTION (optional):</label>
+            <textarea id="caption" placeholder="Add a caption for this photo..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="password">MASTER PASSWORD:</label>
+            <input type="password" id="password" placeholder="Enter upload password">
+        </div>
+
+        <button onclick="uploadFile()">UPLOAD</button>
+    </div>
+
+    <div id="gallery" class="gallery"></div>
+
+    <script>
+        function showStatus(msg, isError) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = msg;
+            statusEl.className = 'status ' + (isError ? 'error' : 'success');
+            setTimeout(() => {
+                statusEl.className = 'status';
+            }, 5000);
+        }
+
+        function uploadFile() {
+            const fileInput = document.getElementById('file');
+            const caption = document.getElementById('caption').value;
+            const password = document.getElementById('password').value;
+
+            if (!fileInput.files.length) {
+                showStatus('ERROR: SELECT A FILE FIRST', true);
+                return;
+            }
+
+            if (!password) {
+                showStatus('ERROR: ENTER PASSWORD', true);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('caption', caption);
+            formData.append('password', password);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload-file', true);
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        if (data.success) {
+                            showStatus('SUCCESS: PHOTO UPLOADED', false);
+                            document.getElementById('file').value = '';
+                            document.getElementById('caption').value = '';
+                            document.getElementById('password').value = '';
+                            loadGallery();
+                        } else {
+                            showStatus('ERROR: ' + (data.error || 'UPLOAD FAILED'), true);
+                        }
+                    } catch (e) {
+                        showStatus('ERROR: INVALID SERVER RESPONSE', true);
+                    }
+                } else if (xhr.status === 403) {
+                    showStatus('ERROR: WRONG PASSWORD', true);
+                } else if (xhr.status === 400) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        showStatus('ERROR: ' + data.error, true);
+                    } catch (e) {
+                        showStatus('ERROR: ' + xhr.status + ' BAD REQUEST', true);
+                    }
+                } else {
+                    showStatus('ERROR: SERVER ERROR ' + xhr.status, true);
+                }
+            };
+
+            xhr.onerror = function() {
+                showStatus('ERROR: NETWORK ERROR', true);
+            };
+
+            xhr.send(formData);
+        }
+
+        function loadGallery() {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/get-photos', true);
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        const photos = JSON.parse(xhr.responseText);
+                        renderGallery(photos);
+                    } catch (e) {
+                        console.error('Error parsing gallery:', e);
+                    }
+                }
+            };
+
+            xhr.send();
+        }
+
+        function renderGallery(photos) {
+            const gallery = document.getElementById('gallery');
+            
+            if (photos.length === 0) {
+                gallery.innerHTML = '<p style="text-align: center; color: #0a0;">NO PHOTOS YET</p>';
+                return;
+            }
+
+            gallery.innerHTML = '<h2>GALLERY</h2>' + photos.map(photo => `
+                <div class="gallery-item">
+                    <img src="/static/uploads/${encodeURIComponent(photo.filename)}" alt="Photo">
+                    <div class="gallery-item-caption">${escapeHtml(photo.caption)}</div>
+                    <div class="gallery-item-time">${photo.ts}</div>
+                    <button class="delete-btn" onclick="deletePhoto('${encodeURIComponent(photo.filename)}')">DELETE</button>
+                </div>
+            `).join('');
+        }
+
+        function deletePhoto(filename) {
+            const pin = prompt('ENTER MASTER PIN TO DELETE:');
+            if (!pin) return;
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/delete-photo', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        if (data.success) {
+                            showStatus('PHOTO DELETED', false);
+                            loadGallery();
+                        } else {
+                            showStatus('ERROR: ' + (data.error || 'DELETE FAILED'), true);
+                        }
+                    } catch (e) {
+                        showStatus('ERROR: INVALID SERVER RESPONSE', true);
+                    }
+                } else if (xhr.status === 403) {
+                    showStatus('ERROR: WRONG PIN', true);
+                } else {
+                    showStatus('ERROR: SERVER ERROR ' + xhr.status, true);
+                }
+            };
+
+            xhr.onerror = function() {
+                showStatus('ERROR: NETWORK ERROR', true);
+            };
+
+            xhr.send(JSON.stringify({filename: filename, pin: pin}));
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Load gallery on page load
+        window.onload = loadGallery;
+    </script>
+
+</body>
+</html>
